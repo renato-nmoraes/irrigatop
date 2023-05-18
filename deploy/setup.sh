@@ -45,7 +45,7 @@ pre_setup_checks() {
 
 main() {
     ask_user "Do you want to start the setup? [y/n]"
-    initial_setup_routine
+    pre_setup_checks
 }
 
 main
