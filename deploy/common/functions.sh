@@ -147,7 +147,7 @@ install_docker() {
     exit 1
   fi
 
-  if [[ $(cat /proc/version) =~ "ubuntu" ]]; then
+  if [[ $(cat /proc/version) =~ (ubuntu|debian) ]]; then
     apt-get update
     apt-get -y install apt-transport-https ca-certificates curl gnupg lsb-release
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
