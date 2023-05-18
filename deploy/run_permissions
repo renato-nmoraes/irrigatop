@@ -1,3 +1,0 @@
-chmod +x common/functions.sh
-chmod +x common/vars.sh
-chmod +x setup.sh

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-script_parent=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
+script_parent=$(dirname $(cd $(dirname $(dirname "${BASH_SOURCE[0]}")) && pwd))
 source ${script_parent}/common/functions.sh
 
 pre_setup_checks() {
