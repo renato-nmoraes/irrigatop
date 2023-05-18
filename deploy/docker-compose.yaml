@@ -1,0 +1,8 @@
+version: '3'
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2-openssl
+    ports:
+      - 59687:1883
+    args:
+      - "blabla"
