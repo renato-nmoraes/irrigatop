@@ -14,11 +14,7 @@
 <div class="state-container">
     <span class="state-label">Status da bomba:</span>
     <span id="state-placeholder" class="state-value">
-        {% if messages %}
-            {{ messages.content }}
-        {% else %}
-            No messages available
-        {% endif %}
+       {{ message }}
     </span>
 </div>
 <div class="button-container">

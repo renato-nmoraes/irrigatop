@@ -55,11 +55,15 @@ def home():
         if action:
             send_message_to_broker_and_store(action)
     try:
-        messages = Message.query.order_by(Message.id.desc()).first()
+        message = Message.query.order_by(Message.id.desc()).first()
+        if message:
+            message = message.content
+        else:
+            message = "No message available"
     except:
-        messages = "NONE"
+        message = "No message available"
 
-    return render_template('index.html', messages=messages)
+    return render_template('index.html', message=message)
 
 
 if __name__ == '__main__':
