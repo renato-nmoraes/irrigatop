@@ -4,6 +4,9 @@ FROM python:3.9-slim-buster
 # Set the working directory inside the container
 WORKDIR /app
 
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
 # Copy the requirements.txt file to the working directory
 COPY requirements.txt .
 

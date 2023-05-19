@@ -3,7 +3,6 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 import paho.mqtt.publish as publish
 from flask_basicauth import BasicAuth
-import os
 try:
     import config_local as config
 except ImportError:
@@ -23,10 +22,10 @@ app.config['BASIC_AUTH_USERNAME'] = config.BASIC_AUTH_USERNAME
 app.config['BASIC_AUTH_PASSWORD'] = config.BASIC_AUTH_PASSWORD
 basic_auth = BasicAuth(app)
 
+
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.String(100))
-    # last_message = db.Column(db.String(100))
 
     def __repr__(self):
         return f'<Message {self.id}>'
@@ -54,7 +53,11 @@ def home():
         action = request.form.get('action')
         if action:
             send_message_to_broker_and_store(action)
-    messages = Message.query.order_by(Message.id.desc()).first()
+    try:
+        messages = Message.query.order_by(Message.id.desc()).first()
+    except SQLAlchemy.exc.OperationalError:
+        messages = "NONE"
+
     return render_template('index.html', messages=messages)
 
 
