@@ -8,9 +8,8 @@ services:
     ports:
       - "59688:5000"
     volumes:
-      - ./data:/app/data
+      - ./data:/app/instance
     environment:
-      - DATABASE_PATH=messages.db
       - MQTT_BROKER=CHANGE_ME
       - MQTT_TOPIC=CHANGE_ME
       - MQTT_PORT=CHANGE_ME
