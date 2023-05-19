@@ -9,4 +9,4 @@ services:
     volumes:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
       - ./passwords.txt:/mosquitto/config/passwords.txt
-      - ./acl.txt:/mosquitto/config/acl.txt
+      # - ./acl.txt:/mosquitto/config/acl.txt
