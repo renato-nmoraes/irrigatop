@@ -1,0 +1,12 @@
+version: '3'
+services:
+  mosquitto:
+    container_name: mosquitto
+    image: eclipse-mosquitto:2-openssl
+    restart: always
+    ports:
+      - 59687:1883
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./passwords.txt:/mosquitto/config/passwords.txt
+      # - ./acl.txt:/mosquitto/config/acl.txt
