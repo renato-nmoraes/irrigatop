@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create a volume for the database
-VOLUME /app/data
+VOLUME /app/instance
 
 # Expose the port on which the application will run
 EXPOSE 5000
@@ -23,5 +23,5 @@ EXPOSE 5000
 ENV FLASK_APP=app.py
 ENV FLASK_RUN_HOST=0.0.0.0
 
-# Run the application
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+RUN chmod +x entrypoint.sh
+ENTRYPOINT ["entrypoint.sh"]
