@@ -2,7 +2,7 @@ import os
 
 MQTT_BROKER = os.environ.get("MQTT_BROKER", "CHANGE_ME")
 MQTT_TOPIC = os.environ.get("MQTT_TOPIC", "CHANGE_ME")
-MQTT_PORT = os.environ.get("MQTT_TOPIC", "CHANGE_ME")
+MQTT_PORT = os.environ.get("MQTT_PORT", "CHANGE_ME")
 MQTT_USERNAME = os.environ.get("MQTT_USERNAME", "CHANGE_ME")
 MQTT_PASSWORD = os.environ.get("MQTT_PASSWORD", "CHANGE_ME")
 

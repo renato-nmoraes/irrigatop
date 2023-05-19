@@ -35,7 +35,7 @@ class Message(db.Model):
 def send_message_to_broker_and_store(message):
     mqtt_broker = config.MQTT_BROKER
     mqtt_topic = config.MQTT_TOPIC
-    mqtt_port = int(config.MQTT_PORT)
+    mqtt_port = config.MQTT_PORT
     mqtt_username = config.MQTT_USERNAME
     mqtt_password = config.MQTT_PASSWORD
 
