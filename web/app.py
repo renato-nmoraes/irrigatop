@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 import paho.mqtt.publish as publish
 from flask_basicauth import BasicAuth
+
 try:
     import config_local as config
 except ImportError:
@@ -55,7 +56,7 @@ def home():
             send_message_to_broker_and_store(action)
     try:
         messages = Message.query.order_by(Message.id.desc()).first()
-    except SQLAlchemy.exc.OperationalError:
+    except:
         messages = "NONE"
 
     return render_template('index.html', messages=messages)
