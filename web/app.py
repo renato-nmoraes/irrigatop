@@ -4,7 +4,11 @@ from flask_migrate import Migrate
 import paho.mqtt.publish as publish
 from flask_basicauth import BasicAuth
 import os
-import config_local as config
+try:
+    import config_local as config
+except ImportError:
+    import config
+
 
 app = Flask(__name__)
 
