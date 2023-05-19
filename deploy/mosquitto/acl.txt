@@ -1,0 +1,1 @@
+pattern write client/+/create_topic
