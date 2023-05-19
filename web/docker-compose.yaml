@@ -1,0 +1,20 @@
+version: '3'
+services:
+  irrigatop:
+    container_name: irrigatop
+    restart: always
+    build:
+      context: .
+    ports:
+      - "59688:5000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DATABASE_PATH=messages.db
+      - MQTT_BROKER=CHANGE_ME
+      - MQTT_TOPIC=CHANGE_ME
+      - MQTT_PORT=CHANGE_ME
+      - MQTT_USERNAME=CHANGE_ME
+      - MQTT_PASSWORD=CHANGE_ME
+      - BASIC_AUTH_USERNAME=CHANGE_ME
+      - BASIC_AUTH_PASSWORD=CHANGE_ME
