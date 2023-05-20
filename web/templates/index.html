@@ -22,15 +22,17 @@
     <div class="button-container">
         <button type="submit" name="action" value="ON" class="button button-on">ON</button>
         <button type="submit" name="action" value="OFF" class="button button-off">OFF</button>
-        <div class="slider-container">
-            <input type="range" value="0" min="0" max="100" name="slider" id="range"
-                   oninput="handleSliderChange(this.value)">
-            <input type="number" id="rangenumber" min="0" max="100" value="0">
-
-        </div>
+    </div>
+    <div class="button-container">
+        <button type="submit" name="action" value="PULSE" class="button button-pulse">PULSE</button>
+    </div>
+    <div class="slider-container">
+        <input type="range" value="0" min="0" max="100" name="slider" id="range"
+               oninput="handleSliderChange(this.value)">
+        <input type="number" id="rangenumber" min="0" max="100" value="0">
     </div>
 </form>
-    <script>
+<script>
         var sliderValue = 0;
         var timeout = null;
 
@@ -63,7 +65,8 @@
                 }
             });
         }
-    </script>
+
+</script>
 </body>
 
 </html>

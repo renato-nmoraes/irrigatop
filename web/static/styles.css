@@ -64,6 +64,10 @@ body {
   background-color: #2ecc71;
 }
 
+.button-pulse {
+  background-color: #D3D3D3;
+}
+
 .button-off {
   background-color: #e74c3c;
 }
