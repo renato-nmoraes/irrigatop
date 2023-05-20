@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IrrigaTOP</title>
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 
 <body>
@@ -17,12 +18,52 @@
        {{ message }}
     </span>
 </div>
-<div class="button-container">
-    <form method="POST">
+<form method="POST">
+    <div class="button-container">
         <button type="submit" name="action" value="ON" class="button button-on">ON</button>
         <button type="submit" name="action" value="OFF" class="button button-off">OFF</button>
-    </form>
-</div>
+        <div class="slider-container">
+            <input type="range" value="0" min="0" max="100" name="slider" id="range"
+                   oninput="handleSliderChange(this.value)">
+            <input type="number" id="rangenumber" min="0" max="100" value="0">
+
+        </div>
+    </div>
+</form>
+    <script>
+        var sliderValue = 0;
+        var timeout = null;
+
+        var rangeInput = document.getElementById('range');
+        var numberInput = document.getElementById('rangenumber');
+
+        rangeInput.addEventListener('input', function (e) {
+            sliderValue = e.target.value;
+            numberInput.value = sliderValue;
+            clearTimeout(timeout);
+        });
+
+        rangeInput.addEventListener('mouseup', function (e) {
+            sendSliderValue(sliderValue);
+        });
+
+        numberInput.addEventListener('change', function (e) {
+            sliderValue = e.target.value;
+            rangeInput.value = sliderValue;
+            sendSliderValue(sliderValue);
+        });
+
+        function sendSliderValue(value) {
+            $.ajax({
+                url: '/intensity',
+                type: 'POST',
+                data: { slider: value },
+                success: function (response) {
+                    $('#result').text(response.message);
+                }
+            });
+        }
+    </script>
 </body>
 
 </html>

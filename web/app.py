@@ -10,14 +10,12 @@ try:
 except ImportError:
     import config
 
-
 app = Flask(__name__)
 
 # DATABASE DATA
 app.config['SQLALCHEMY_DATABASE_URI'] = config.SQLALCHEMY_DATABASE_URI
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
-
 
 # AUTH
 app.config['BASIC_AUTH_USERNAME'] = config.BASIC_AUTH_USERNAME
@@ -33,19 +31,20 @@ class Message(db.Model):
         return f'<Message {self.id}>'
 
 
-def send_message_to_broker_and_store(message):
+def send_message_to_broker_and_store(message, topic=None):
     mqtt_broker = config.MQTT_BROKER
     mqtt_topic = config.MQTT_TOPIC
     mqtt_port = int(config.MQTT_PORT)
     mqtt_username = config.MQTT_USERNAME
     mqtt_password = config.MQTT_PASSWORD
 
-    publish.single(mqtt_topic, payload=message, hostname=mqtt_broker, port=mqtt_port,
-                   auth={'username': mqtt_username, 'password': mqtt_password})
+    publish.single(f"{mqtt_topic}/{topic}" if topic is not None else mqtt_topic, payload=message, hostname=mqtt_broker,
+                   port=mqtt_port, auth={'username': mqtt_username, 'password': mqtt_password})
 
     # Store the message in the database
-    db.session.add(Message(content=message))
-    db.session.commit()
+    if topic == "action":
+        db.session.add(Message(content=message))
+        db.session.commit()
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -54,7 +53,7 @@ def home():
     if request.method == 'POST':
         action = request.form.get('action')
         if action:
-            send_message_to_broker_and_store(action)
+            send_message_to_broker_and_store(message=action, topic="action")
     try:
         message = Message.query.order_by(Message.id.desc()).first()
         if message:
@@ -65,6 +64,17 @@ def home():
         message = "No message available"
 
     return render_template('index.html', message=message)
+
+
+@app.route('/intensity', methods=['POST'])
+def process():
+    intensity_value = int(request.form['slider'])
+    send_message_to_broker_and_store(message=intensity_value, topic="intensity")
+
+    # Do something with the slider value
+    # For example, print it to the console
+    print(f"Slider value: {intensity_value}")
+    return 'Slider value captured!'
 
 
 if __name__ == '__main__':

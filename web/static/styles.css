@@ -72,6 +72,19 @@ body {
   opacity: 0.8;
 }
 
+/* Slider container */
+.slider-container {
+  text-align: center;
+  margin-top: 20px;
+}
+
+/* Slider input */
+.slider-input {
+  width: 80%;
+  margin: 0 auto;
+  display: block;
+}
+
 @media handheld and (max-width: 480px) {
   .title {
       font-size: 40px;
@@ -97,4 +110,15 @@ body {
     padding: 4px 8px;
     font-size: 40px;
   }
+
+  /* Slider container */
+  .slider-container {
+    margin-top: 10px;
+  }
+
+  /* Slider input */
+  .slider-input {
+    width: 100%;
+  }
 }
+
