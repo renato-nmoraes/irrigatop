@@ -2,6 +2,7 @@ from flask import Flask, render_template, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 import paho.mqtt.publish as publish
+import paho.mqtt.subscribe as subscribe
 from flask_basicauth import BasicAuth
 
 try:
