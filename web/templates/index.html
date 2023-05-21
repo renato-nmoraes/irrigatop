@@ -2,38 +2,38 @@
 <html>
 
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IrrigaTOP</title>
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IrrigaTOP</title>
+  <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 
 <body>
-<div class="top-bar">
+  <div class="top-bar">
     <h1 class="title">IrrigaTOP</h1>
-</div>
-<div class="state-container">
+  </div>
+  <div class="state-container">
     <span class="state-label">Status da bomba:</span>
     <span id="state-placeholder" class="state-value">
-            {{ message }}
-        </span>
-</div>
-<form method="POST">
+      {{ message }}
+    </span>
+  </div>
+  <form method="POST">
     <div class="button-container">
-        <button type="submit" name="action" value="ON" class="button button-on">ON</button>
-        <button type="submit" name="action" value="OFF" class="button button-off">OFF</button>
+      <button type="submit" name="action" value="ON" class="button button-on">ON</button>
+      <button type="submit" name="action" value="OFF" class="button button-off">OFF</button>
     </div>
     <div class="button-container">
-        <button type="submit" name="action" value="PULSE" class="button button-pulse">PULSE</button>
+      <button type="submit" name="action" value="PULSE" class="button button-pulse">PULSE</button>
     </div>
-</form>
-<form method="POST" action="/intensity" id="slider-form">
+  </form>
+  <form method="POST" action="/intensity" id="slider-form">
     <div class="slider-container">
-        <input type="range" value="0" min="0" max="100" name="slider" id="range" oninput="handleSliderChange(this.value)">
-        <input type="number" id="rangenumber" min="0" max="100" value="0">
+      <input type="range" value="0" min="0" max="100" name="slider" id="range" oninput="handleSliderChange(this.value)">
+      <input type="number" id="rangenumber" min="0" max="100" value="0">
     </div>
-</form>
-<script>
+  </form>
+  <script>
     var sliderValue = 0;
     var timeout = null;
 
@@ -42,47 +42,47 @@
     var sliderForm = document.getElementById('slider-form');
 
     function handleSliderChange(e) {
-        sliderValue = e.target.value;
-        numberInput.value = sliderValue;
-        clearTimeout(timeout);
+      sliderValue = e.target.value;
+      numberInput.value = sliderValue;
+      clearTimeout(timeout);
     }
 
     rangeInput.addEventListener('input', handleSliderChange);
 
-    rangeInput.addEventListener('touchmove', function(e) {
-        handleSliderChange(e);
-        sendSliderValue(sliderValue);
+    rangeInput.addEventListener('mouseup', function (e) {
+      e.preventDefault(); // Prevent default form submission
+      sendSliderValue(sliderValue);
     });
 
-    rangeInput.addEventListener('mouseup', function (e) {
-        e.preventDefault(); // Prevent default form submission
-        sendSliderValue(sliderValue);
+    rangeInput.addEventListener('touchend', function (e) {
+      e.preventDefault(); // Prevent default form submission
+      sendSliderValue(sliderValue);
     });
 
     numberInput.addEventListener('change', function (e) {
-        sliderValue = e.target.value;
-        rangeInput.value = sliderValue;
-        sendSliderValue(sliderValue);
+      sliderValue = e.target.value;
+      rangeInput.value = sliderValue;
+      sendSliderValue(sliderValue);
     });
 
     function sendSliderValue(value) {
-        var formData = new FormData(sliderForm);
+      var formData = new FormData(sliderForm);
 
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', sliderForm.action);
-        xhr.onload = function () {
-            if (xhr.status === 200) {
-                // Handle successful response
-                var response = JSON.parse(xhr.responseText);
-                document.getElementById('result').textContent = response.message;
-            } else {
-                // Handle error
-                console.error('Request failed. Error code: ' + xhr.status);
-            }
-        };
-        xhr.send(formData);
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', sliderForm.action);
+      xhr.onload = function () {
+        if (xhr.status === 200) {
+          // Handle successful response
+          var response = JSON.parse(xhr.responseText);
+          document.getElementById('result').textContent = response.message;
+        } else {
+          // Handle error
+          console.error('Request failed. Error code: ' + xhr.status);
+        }
+      };
+      xhr.send(formData);
     }
-</script>
+  </script>
 
 </body>
 
