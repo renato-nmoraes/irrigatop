@@ -68,7 +68,7 @@ def home():
 
 @app.route('/intensity', methods=['POST'])
 def process():
-    intensity_value = int(request.form['slider'])
+    intensity_value = int(request.form.get('slider'))
     send_message_to_broker_and_store(message=intensity_value, topic="intensity")
 
     # Do something with the slider value

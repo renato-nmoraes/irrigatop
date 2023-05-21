@@ -15,8 +15,8 @@
 <div class="state-container">
     <span class="state-label">Status da bomba:</span>
     <span id="state-placeholder" class="state-value">
-       {{ message }}
-    </span>
+            {{ message }}
+        </span>
 </div>
 <form method="POST">
     <div class="button-container">
@@ -26,46 +26,55 @@
     <div class="button-container">
         <button type="submit" name="action" value="PULSE" class="button button-pulse">PULSE</button>
     </div>
+</form>
+<form method="POST" action="/intensity" id="slider-form">
     <div class="slider-container">
-        <input type="range" value="0" min="0" max="100" name="slider" id="range"
-               oninput="handleSliderChange(this.value)">
+        <input type="range" value="0" min="0" max="100" name="slider" id="range" oninput="handleSliderChange(this.value)">
         <input type="number" id="rangenumber" min="0" max="100" value="0">
     </div>
 </form>
 <script>
-        var sliderValue = 0;
-        var timeout = null;
+    var sliderValue = 0;
+    var timeout = null;
 
-        var rangeInput = document.getElementById('range');
-        var numberInput = document.getElementById('rangenumber');
+    var rangeInput = document.getElementById('range');
+    var numberInput = document.getElementById('rangenumber');
+    var sliderForm = document.getElementById('slider-form');
 
-        rangeInput.addEventListener('input', function (e) {
-            sliderValue = e.target.value;
-            numberInput.value = sliderValue;
-            clearTimeout(timeout);
-        });
+    rangeInput.addEventListener('input', function (e) {
+        sliderValue = e.target.value;
+        numberInput.value = sliderValue;
+        clearTimeout(timeout);
+    });
 
-        rangeInput.addEventListener('mouseup', function (e) {
-            sendSliderValue(sliderValue);
-        });
+    rangeInput.addEventListener('mouseup', function (e) {
+        e.preventDefault(); // Prevent default form submission
+        sendSliderValue(sliderValue);
+    });
 
-        numberInput.addEventListener('change', function (e) {
-            sliderValue = e.target.value;
-            rangeInput.value = sliderValue;
-            sendSliderValue(sliderValue);
-        });
+    numberInput.addEventListener('change', function (e) {
+        sliderValue = e.target.value;
+        rangeInput.value = sliderValue;
+        sendSliderValue(sliderValue);
+    });
 
-        function sendSliderValue(value) {
-            $.ajax({
-                url: '/intensity',
-                type: 'POST',
-                data: { slider: value },
-                success: function (response) {
-                    $('#result').text(response.message);
-                }
-            });
-        }
+    function sendSliderValue(value) {
+        var formData = new FormData(sliderForm);
 
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', sliderForm.action);
+        xhr.onload = function () {
+            if (xhr.status === 200) {
+                // Handle successful response
+                var response = JSON.parse(xhr.responseText);
+                document.getElementById('result').textContent = response.message;
+            } else {
+                // Handle error
+                console.error('Request failed. Error code: ' + xhr.status);
+            }
+        };
+        xhr.send(formData);
+    }
 </script>
 </body>
 
