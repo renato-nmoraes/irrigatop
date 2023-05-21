@@ -41,10 +41,17 @@
     var numberInput = document.getElementById('rangenumber');
     var sliderForm = document.getElementById('slider-form');
 
-    rangeInput.addEventListener('input', function (e) {
+    function handleSliderChange(e) {
         sliderValue = e.target.value;
         numberInput.value = sliderValue;
         clearTimeout(timeout);
+    }
+
+    rangeInput.addEventListener('input', handleSliderChange);
+
+    rangeInput.addEventListener('touchmove', function(e) {
+        handleSliderChange(e);
+        sendSliderValue(sliderValue);
     });
 
     rangeInput.addEventListener('mouseup', function (e) {
@@ -76,6 +83,7 @@
         xhr.send(formData);
     }
 </script>
+
 </body>
 
 </html>
