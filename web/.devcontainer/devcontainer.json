@@ -1,0 +1,31 @@
+{
+	"name": "irrigatop",
+	// CONFIGURACAO PARA IMAGEM PRONTA
+	// "image": "python:3.9-slim-buster",
+
+	// CONFIGURACOES PARA DOCKERFILE
+	// "build": {
+	// 	"dockerfile": "../Dockerfile_dev",
+	// 	"context": ".."
+	// },
+	
+	// CONFIGURACOES PARA DOCKER-COMPOSE
+	"dockerComposeFile": "../docker-compose.debug.yaml",
+	"service": "irrigatop",
+	"workspaceFolder": "/web",
+	"customizations": {
+		"vscode": {
+			// "settings": {
+			// 	"terminal.integrated.shell.linux": "/bin/sh"
+			// },
+			"extensions": [
+				"ms-python.python"
+			]
+		}
+	},
+	"forwardPorts": [ // Add any required port forwarding settings
+		80,
+		5000
+	],
+	"overrideCommand": true
+}

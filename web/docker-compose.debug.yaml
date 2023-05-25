@@ -1,0 +1,20 @@
+version: '3'
+services:
+  irrigatop:
+    container_name: irrigatop
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile_dev
+      args:
+        DOCKER_BUILDKIT: 1
+    ports:
+      - "5000:5000"
+    environment:
+      - MQTT_BROKER=CHANGE_ME
+      - MQTT_TOPIC=CHANGE_ME
+      - MQTT_PORT=CHANGE_ME
+      - MQTT_USERNAME=CHANGE_ME
+      - MQTT_PASSWORD=CHANGE_ME
+      - BASIC_AUTH_USERNAME=CHANGE_ME
+      - BASIC_AUTH_PASSWORD=CHANGE_ME
