@@ -13,13 +13,13 @@ except ImportError:
 app = Flask(__name__)
 
 # DATABASE DATA
-app.config["SQLALCHEMY_DATABASE_URI"] = config.SQLALCHEMY_DATABASE_URI
+app.config['SQLALCHEMY_DATABASE_URI'] = config.SQLALCHEMY_DATABASE_URI
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
 # AUTH
-app.config["BASIC_AUTH_USERNAME"] = config.BASIC_AUTH_USERNAME
-app.config["BASIC_AUTH_PASSWORD"] = config.BASIC_AUTH_PASSWORD
+app.config['BASIC_AUTH_USERNAME'] = config.BASIC_AUTH_USERNAME
+app.config['BASIC_AUTH_PASSWORD'] = config.BASIC_AUTH_PASSWORD
 basic_auth = BasicAuth(app)
 
 
@@ -28,48 +28,30 @@ class Message(db.Model):
     content = db.Column(db.String(100))
 
     def __repr__(self):
-        return f"<Message {self.id}>"
+        return f'<Message {self.id}>'
 
 
 def send_message_to_broker_and_store(message, topic=None):
     mqtt_broker = config.MQTT_BROKER
-    mqtt_topic = config.MQTT_TOPIC_PUBLISH
+    mqtt_topic = config.MQTT_TOPIC
     mqtt_port = int(config.MQTT_PORT)
     mqtt_username = config.MQTT_USERNAME
     mqtt_password = config.MQTT_PASSWORD
 
-    publish.single(
-        f"{mqtt_topic}/{topic}" if topic is not None else mqtt_topic,
-        payload=message,
-        hostname=mqtt_broker,
-        port=mqtt_port,
-        auth={"username": mqtt_username, "password": mqtt_password},
-    )
+    publish.single(f"{mqtt_topic}/{topic}" if topic is not None else mqtt_topic, payload=message, hostname=mqtt_broker,
+                   port=mqtt_port, auth={'username': mqtt_username, 'password': mqtt_password})
 
-    # # Store the message in the database
-    # if topic == "action":
-    #     db.session.add(Message(content=message))
-    #     db.session.commit()
+    # Store the message in the database
+    if topic == "action":
+        db.session.add(Message(content=message))
+        db.session.commit()
 
 
-def subscribe_mqtt(topic=None):
-    return subscribe.simple(
-        topics=[
-            f"{config.MQTT_TOPIC_STATUS}/{topic}"
-            if topic is not None
-            else f"{config.MQTT_TOPIC_STATUS}/action"
-        ],
-        hostname=config.MQTT_BROKER,
-        port=int(config.MQTT_PORT),
-        auth={"username": config.MQTT_USERNAME, "password": config.MQTT_PASSWORD},
-    )
-
-
-@app.route("/", methods=["GET", "POST"])
+@app.route('/', methods=['GET', 'POST'])
 @basic_auth.required
 def home():
-    if request.method == "POST":
-        action = request.form.get("action")
+    if request.method == 'POST':
+        action = request.form.get('action')
         if action:
             send_message_to_broker_and_store(message=action, topic="action")
     try:
@@ -81,22 +63,21 @@ def home():
     except:
         message = "No message available"
 
-    action_executed = subscribe_mqtt("action").payload.decode()
-    return render_template("index.html", message=action_executed)
+    return render_template('index.html', message=message)
 
 
-@app.route("/intensity", methods=["POST"])
+@app.route('/intensity', methods=['POST'])
 def process():
-    intensity_value = int(request.form.get("slider"))
+    intensity_value = int(request.form.get('slider'))
     send_message_to_broker_and_store(message=intensity_value, topic="intensity")
 
     # Do something with the slider value
     # For example, print it to the console
     print(f"Slider value: {intensity_value}")
-    return "Slider value captured!"
+    return 'Slider value captured!'
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     app.run(debug=True)
