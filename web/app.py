@@ -57,7 +57,7 @@ def subscribe_mqtt(topic=None):
         hostname=config.MQTT_BROKER,
         port=int(config.MQTT_PORT),
         auth={"username": config.MQTT_USERNAME, "password": config.MQTT_PASSWORD},
-        keepalive=5
+        keepalive=1
     )
 
     if topic == "action":
