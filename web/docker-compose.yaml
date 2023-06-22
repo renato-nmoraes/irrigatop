@@ -7,13 +7,17 @@ services:
       context: .
     ports:
       - "59688:5000"
+      - 5678:5678
     volumes:
       - ./data:/app/instance
+      # - .:/app Debug only
     environment:
+      # - FLASK_DEBUG=1 debug only
       - MQTT_BROKER=CHANGE_ME
-      - MQTT_TOPIC=CHANGE_ME
+      - MQTT_TOPIC_PUBLISH=CHANGE_ME
+      - MQTT_TOPIC_STATUS=CHANGE_ME
       - MQTT_PORT=CHANGE_ME
       - MQTT_USERNAME=CHANGE_ME
       - MQTT_PASSWORD=CHANGE_ME
+      - BASIC_AUTH_PASSWORD=CHANGE_ME      
       - BASIC_AUTH_USERNAME=CHANGE_ME
-      - BASIC_AUTH_PASSWORD=CHANGE_ME
