@@ -33,7 +33,7 @@ class Message(db.Model):
 
 def send_message_to_broker_and_store(message, topic=None):
     mqtt_broker = config.MQTT_BROKER
-    mqtt_topic = config.MQTT_TOPIC
+    mqtt_topic = config.MQTT_TOPIC_PUBLISH
     mqtt_port = int(config.MQTT_PORT)
     mqtt_username = config.MQTT_USERNAME
     mqtt_password = config.MQTT_PASSWORD
@@ -47,6 +47,26 @@ def send_message_to_broker_and_store(message, topic=None):
         db.session.commit()
 
 
+def subscribe_mqtt(topic=None):
+    subscribe_result = subscribe.simple(
+        topics=[
+            f"{config.MQTT_TOPIC_STATUS}/{topic}"
+            if topic is not None
+            else f"{config.MQTT_TOPIC_STATUS}/action"
+        ],
+        hostname=config.MQTT_BROKER,
+        port=int(config.MQTT_PORT),
+        auth={"username": config.MQTT_USERNAME, "password": config.MQTT_PASSWORD},
+        keepalive=1
+    )
+
+    if topic == "action":
+        db.session.add(Message(content=subscribe_result.payload.decode()))
+        db.session.commit()
+    
+    return subscribe_result.payload.decode()
+
+
 @app.route('/', methods=['GET', 'POST'])
 @basic_auth.required
 def home():
@@ -54,16 +74,16 @@ def home():
         action = request.form.get('action')
         if action:
             send_message_to_broker_and_store(message=action, topic="action")
-    try:
-        message = Message.query.order_by(Message.id.desc()).first()
-        if message:
-            message = message.content
-        else:
-            message = "No message available"
-    except:
-        message = "No message available"
+    # try:
+    #     message = Message.query.order_by(Message.id.desc()).first()
+    #     if message:
+    #         message = message.content
+    #     else:
+    #         message = "No message available"
+    # except:
+    #     message = "No message available"
 
-    return render_template('index.html', message=message)
+    return render_template('index.html', message=subscribe_mqtt("action"))
 
 
 @app.route('/intensity', methods=['POST'])
