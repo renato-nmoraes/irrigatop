@@ -21,8 +21,10 @@ const char* mqttUser = "irrigatop";
 const char* mqttPassword = "irrigatop";
 const char* mqttTopicReadAction = "irrigation/action";
 const char* mqttTopicReadIntensity = "irrigation/intensity";
+const char* mqttTopicReadPump = "irrigation/pump";
 const char* mqttTopicPublishAction = "irrigation/status/action";
 const char* mqttTopicPublishIntensity = "irrigation/status/intensity";
+const char* mqttTopicPublishPump = "irrigation/status/pump";
 
 /*
   SERVER/CLIENT DECLARATION
@@ -38,9 +40,11 @@ AsyncWebServer server(80);
   PORT CONFIGURATION
 */
 // Set LED GPIO
-const int pumpPin = 27;
+const int pump1Pin = 27;
+const int pump2Pin = 28;
 const int pwmPin = 16;
 const int boardLedPin = 2;
+int pumpPin = pump1Pin;
 
 /*
   STATIC IP
@@ -192,6 +196,14 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   } else if (strcmp(topic, mqttTopicReadIntensity) == 0) {
     Serial.println("--- Setting Pump Intensity ---");
     set_pwm_intensity(messageTemp.toInt());
+  } else if (strcmp(topic, mqttTopicReadPump) == 0) {
+    if (messageTemp.toInt() == 1) {
+      Serial.println("--- Setting Pump 1 Active ---");
+      pumpPin = 27
+    } else if (messageTemp.toInt() == 2) {
+      Serial.println("--- Setting Pump 2 Active ---");
+      pumpPin = 28
+    }
   }
   Serial.println();
 }
@@ -263,7 +275,8 @@ void setup() {
 
   // Initialize the output variables as outputs
   pinMode(boardLedPin, OUTPUT);
-  pinMode(pumpPin, OUTPUT);
+  pinMode(pump1Pin, OUTPUT);
+  pinMode(pump2Pin, OUTPUT);
   // Set outputs to HIGH (TURN OFF PUMP)
   digitalWrite(pumpPin, HIGH);
 
