@@ -12,19 +12,34 @@
   <div class="top-bar">
     <h1 class="title">IrrigaTOP</h1>
   </div>
-  <div class="state-container">
-    <span class="state-label">Status da bomba:</span>
-    <span id="state-placeholder" class="state-value">
-      {{ message }}
-    </span>
-  </div>
-  <form method="POST">
-    <div class="button-container">
-      <button type="submit" name="action" value="ON" class="button button-on">ON</button>
-      <button type="submit" name="action" value="OFF" class="button button-off">OFF</button>
+  <form id="pump-form" action="/pump" method="POST">
+    <div class="pump-select-container">
+      <label for="pump-select">Selecione a bomba:</label>
+      <div class="custom-dropdown" id="pump-select">
+        <span class="selected-pump">Bomba 1</span>
+        <ul class="dropdown-options">
+          <div data-value="1" class="pump-option">Bomba 1</div>
+          <div data-value="2" class="pump-option">Bomba 2</div>
+        </ul>
+      </div>
     </div>
-    <div class="button-container">
-      <button type="submit" name="action" value="PULSE" class="button button-pulse">PULSE</button>
+    <input type="hidden" name="pump_id" id="pump_id">
+  </form>
+  <form method="POST">
+    <div class="container">
+      <div class="state-container">
+        <span class="state-label">Status da bomba:</span>
+        <span id="state-placeholder" class="state-value">
+          {{ message }}
+        </span>
+      </div>
+      <div class="button-container">
+        <button type="submit" name="action" value="ON" class="button button-action button-on">ON</button>
+        <button type="submit" name="action" value="OFF" class="button button-action button-off">OFF</button>
+      </div>
+      <div class="button-container">
+        <button type="submit" name="action" value="PULSE" class="button button-action button-pulse">PULSE</button>
+      </div>
     </div>
   </form>
   <form method="POST" action="/intensity" id="slider-form">
@@ -34,6 +49,7 @@
     </div>
   </form>
   <script>
+    // Slider functionality
     var sliderValue = 0;
     var timeout = null;
 
@@ -82,6 +98,53 @@
       };
       xhr.send(formData);
     }
+
+    // Pump selection functionality
+    const pumpDropdown = document.getElementById('pump-select');
+
+    pumpDropdown.addEventListener('click', function() {
+      console.log('Dropdown clicked!');
+      this.classList.toggle('active');
+    });
+
+    pumpDropdown.querySelectorAll('.dropdown-options div').forEach(option => {
+      option.addEventListener('click', function(event) {
+        event.stopPropagation();
+        console.log('Option clicked!');
+
+        const selectedPumpText = this.textContent;
+        pumpDropdown.querySelector('.selected-pump').textContent = selectedPumpText;
+
+        pumpDropdown.classList.remove('active'); // Hide options
+
+        const pumpIdInput = document.getElementById('pump_id');
+        const pumpForm = document.getElementById('pump-form');
+        pumpIdInput.value = this.dataset.value;
+
+        // AJAX-based pump setting
+        event.preventDefault(); // Prevent default form submission
+        fetch('/pump', {
+          method: 'POST',
+          body: new FormData(pumpForm)
+        })
+        .then(response => response.json())  // Parse the JSON response
+        .then(data => {
+          // Handle successful response
+          console.log('Pump ID set successfully:', data.message);  // Access the message
+        })
+        .catch(error => {
+          // Handle errors
+          console.error('Error setting pump ID:', error);
+        });
+      });
+    });
+
+    document.addEventListener('click', function(event) {
+      if (!pumpDropdown.contains(event.target)) {
+        console.log('Document clicked!');
+        pumpDropdown.classList.remove('active');
+      }
+    });
   </script>
 
 </body>

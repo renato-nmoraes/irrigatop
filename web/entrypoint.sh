@@ -11,4 +11,8 @@ flask db upgrade
 
 
 # Start the application with Gunicorn
-exec gunicorn --bind 0.0.0.0:5000 app:app
+if [[ $FLASK_DEBUG == "1" ]]; then
+    python -m debugpy --listen 0.0.0.0:5678 --wait-for-client -m gunicorn --bind 0.0.0.0:5000 app:app
+else
+    exec gunicorn --bind 0.0.0.0:5000 app:app
+fi

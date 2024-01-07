@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 import paho.mqtt.publish as publish
@@ -31,14 +31,17 @@ class Message(db.Model):
         return f'<Message {self.id}>'
 
 
-def send_message_to_broker_and_store(message, topic=None):
+def send_message_to_broker_and_store(message, topic=None, pump_id=None):
     mqtt_broker = config.MQTT_BROKER
     mqtt_topic = config.MQTT_TOPIC
     mqtt_port = int(config.MQTT_PORT)
     mqtt_username = config.MQTT_USERNAME
     mqtt_password = config.MQTT_PASSWORD
 
-    publish.single(f"{mqtt_topic}/{topic}" if topic is not None else mqtt_topic, payload=message, hostname=mqtt_broker,
+    if topic is None:
+        raise Exception("Missing topic")
+
+    publish.single(f"{mqtt_topic}/{pump_id}/{topic}", payload=message, hostname=mqtt_broker,
                    port=mqtt_port, auth={'username': mqtt_username, 'password': mqtt_password})
 
     # Store the message in the database
@@ -52,8 +55,9 @@ def send_message_to_broker_and_store(message, topic=None):
 def home():
     if request.method == 'POST':
         action = request.form.get('action')
+        pump_id = int(request.form.get('pump_id'))  # Get the selected pump ID
         if action:
-            send_message_to_broker_and_store(message=action, topic="action")
+            send_message_to_broker_and_store(message=action, topic="action", pump_id=pump_id)
     try:
         message = Message.query.order_by(Message.id.desc()).first()
         if message:
@@ -74,8 +78,13 @@ def process():
     # Do something with the slider value
     # For example, print it to the console
     print(f"Slider value: {intensity_value}")
-    return 'Slider value captured!'
+    return intensity_value
 
+@app.route('/pump', methods=['POST'])
+def handle_pump_selection():
+    pump_id = request.form['pump_id']
+    # Process the pump ID here (e.g., store it in a database, send it to a controller, etc.)
+    return pump_id
 
 if __name__ == '__main__':
     with app.app_context():

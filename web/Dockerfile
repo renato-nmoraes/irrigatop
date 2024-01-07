@@ -15,6 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the application code to the working directory
 COPY . .
+RUN mv /app/entrypoint.sh /entrypoint.sh
 
 # Create a volume for the database
 VOLUME /app/instance
@@ -26,5 +27,5 @@ EXPOSE 5000
 ENV FLASK_APP=app.py
 ENV FLASK_RUN_HOST=0.0.0.0
 
-RUN chmod +x /app/entrypoint.sh
-ENTRYPOINT ["/app/entrypoint.sh"]
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
