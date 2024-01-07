@@ -30,7 +30,7 @@
       <div class="state-container">
         <span class="state-label">Status da bomba:</span>
         <span id="state-placeholder" class="state-value">
-          {{ message }}
+          <!-- {{ pump_status }} -->
         </span>
       </div>
       <div class="button-container">
@@ -112,6 +112,22 @@
           }
         });
       });
+
+      // Update the pump status on the frontend when a new message is received
+      function updatePumpStatus(status) {
+          $('#state-placeholder').text(status);
+      }
+
+      // Get the initial pump status from the server
+      $.get('/status', function(response) {
+          updatePumpStatus(response.status);
+      });
+
+      setInterval(function() {
+        $.getJSON("/status", function(data) {
+            $("#state-placeholder").text(data.status); 
+        });
+      }, 5000);  // Check for updates every 5 seconds
 
       $(document).click(function(event) {
         if (!$pumpDropdown.is(event.target) && $pumpDropdown.has(event.target).length === 0) {
