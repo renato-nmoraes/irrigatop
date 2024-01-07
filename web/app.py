@@ -31,7 +31,7 @@ class Message(db.Model):
         return f'<Message {self.id}>'
 
 
-def send_message_to_broker_and_store(message, topic=None, pump_id=None):
+def send_message_to_broker_and_store(message, topic=None):
     mqtt_broker = config.MQTT_BROKER
     mqtt_topic = config.MQTT_TOPIC
     mqtt_port = int(config.MQTT_PORT)
@@ -41,7 +41,7 @@ def send_message_to_broker_and_store(message, topic=None, pump_id=None):
     if topic is None:
         raise Exception("Missing topic")
 
-    publish.single(f"{mqtt_topic}/{pump_id}/{topic}", payload=message, hostname=mqtt_broker,
+    publish.single(f"{mqtt_topic}/{topic}", payload=message, hostname=mqtt_broker,
                    port=mqtt_port, auth={'username': mqtt_username, 'password': mqtt_password})
 
     # Store the message in the database
@@ -57,7 +57,7 @@ def home():
         action = request.form.get('action')
         pump_id = int(request.form.get('pump_id'))  # Get the selected pump ID
         if action:
-            send_message_to_broker_and_store(message=action, topic="action", pump_id=pump_id)
+            send_message_to_broker_and_store(message=action, topic="action")
     try:
         message = Message.query.order_by(Message.id.desc()).first()
         if message:
@@ -73,7 +73,7 @@ def home():
 @app.route('/intensity', methods=['POST'])
 def process():
     intensity_value = int(request.form.get('slider'))
-    # send_message_to_broker_and_store(message=intensity_value, topic="intensity")
+    send_message_to_broker_and_store(message=intensity_value, topic="intensity")
 
     # Do something with the slider value
     # For example, print it to the console
@@ -83,6 +83,7 @@ def process():
 @app.route('/pump', methods=['POST'])
 def handle_pump_selection():
     pump_id = request.form['pump_id']
+    send_message_to_broker_and_store(message=pump_id, topic="pump")
     # Process the pump ID here (e.g., store it in a database, send it to a controller, etc.)
     print(f"Pump ID: {pump_id}")
     return jsonify({'pump_id': pump_id})  # Return the processed
