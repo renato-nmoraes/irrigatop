@@ -44,106 +44,80 @@
   </form>
   <form method="POST" action="/intensity" id="slider-form">
     <div class="slider-container">
-      <input type="range" value="0" min="0" max="100" name="slider" id="range" oninput="handleSliderChange(this.value)">
+      <input type="range" value="0" min="0" max="100" name="slider" id="range"">
       <input type="number" id="rangenumber" min="0" max="100" value="0">
     </div>
   </form>
   <script>
     // Slider functionality
-    var sliderValue = 0;
-    var timeout = null;
+    $(document).ready(() => {
+      var sliderValue = 0;
+      var timeout = null;
+      const $rangeInput = $('#range');
+      const $numberInput = $('#rangenumber');
+      const $sliderForm = $('#slider-form');
+      const $pumpDropdown = $('#pump-select');
 
-    var rangeInput = document.getElementById('range');
-    var numberInput = document.getElementById('rangenumber');
-    var sliderForm = document.getElementById('slider-form');
+      // Slider functionality
+      $rangeInput.on('input change', () => {
+        const sliderValue = $rangeInput.val();
+        $numberInput.val(sliderValue);
+        clearTimeout(timeout);
+        timeout = setTimeout(() => sendSliderValue(sliderValue), 500); // Delay sending
+      });
 
-    function handleSliderChange(e) {
-      sliderValue = e.target.value;
-      numberInput.value = sliderValue;
-      clearTimeout(timeout);
-    }
+      $numberInput.on('change', () => {
+        const sliderValue = $numberInput.val();
+        $rangeInput.val(sliderValue);
+        sendSliderValue(sliderValue);
+      });
 
-    rangeInput.addEventListener('input', handleSliderChange);
+      function sendSliderValue(value) {
+        $.ajax({
+          url: $sliderForm.attr('action'),
+          type: 'POST',
+          data: $sliderForm.serialize(),
+          success: (response) => {
+            $('#result').text(response.message);
+          },
+          error: (error) => {
+            console.error('Request failed:', error);
+          }
+        });
+      }
 
-    rangeInput.addEventListener('mouseup', function (e) {
-      e.preventDefault(); // Prevent default form submission
-      sendSliderValue(sliderValue);
-    });
+      // Pump selection functionality
+      $pumpDropdown.click(function() {
+        $(this).toggleClass('active');
+      });
 
-    rangeInput.addEventListener('touchend', function (e) {
-      e.preventDefault(); // Prevent default form submission
-      sendSliderValue(sliderValue);
-    });
-
-    numberInput.addEventListener('change', function (e) {
-      sliderValue = e.target.value;
-      rangeInput.value = sliderValue;
-      sendSliderValue(sliderValue);
-    });
-
-    function sendSliderValue(value) {
-      var formData = new FormData(sliderForm);
-
-      var xhr = new XMLHttpRequest();
-      xhr.open('POST', sliderForm.action);
-      xhr.onload = function () {
-        if (xhr.status === 200) {
-          // Handle successful response
-          var response = JSON.parse(xhr.responseText);
-          document.getElementById('result').textContent = response.message;
-        } else {
-          // Handle error
-          console.error('Request failed. Error code: ' + xhr.status);
-        }
-      };
-      xhr.send(formData);
-    }
-
-    // Pump selection functionality
-    const pumpDropdown = document.getElementById('pump-select');
-
-    pumpDropdown.addEventListener('click', function() {
-      console.log('Dropdown clicked!');
-      this.classList.toggle('active');
-    });
-
-    pumpDropdown.querySelectorAll('.dropdown-options div').forEach(option => {
-      option.addEventListener('click', function(event) {
+      $pumpDropdown.on('click', '.dropdown-options div', function(event) {
         event.stopPropagation();
-        console.log('Option clicked!');
+        const selectedPumpText = $(this).text();
+        $pumpDropdown.find('.selected-pump').text(selectedPumpText);
+        $pumpDropdown.removeClass('active');
 
-        const selectedPumpText = this.textContent;
-        pumpDropdown.querySelector('.selected-pump').textContent = selectedPumpText;
+        const pumpId = $(this).data('value');
+        $('#pump_id').val(pumpId);
 
-        pumpDropdown.classList.remove('active'); // Hide options
-
-        const pumpIdInput = document.getElementById('pump_id');
-        const pumpForm = document.getElementById('pump-form');
-        pumpIdInput.value = this.dataset.value;
-
-        // AJAX-based pump setting
-        event.preventDefault(); // Prevent default form submission
-        fetch('/pump', {
-          method: 'POST',
-          body: new FormData(pumpForm)
-        })
-        .then(response => response.json())  // Parse the JSON response
-        .then(data => {
-          // Handle successful response
-          console.log('Pump ID set successfully:', data.message);  // Access the message
-        })
-        .catch(error => {
-          // Handle errors
-          console.error('Error setting pump ID:', error);
+        $.ajax({
+          url: '/pump',
+          type: 'POST',
+          data: $('#pump-form').serialize(),
+          success: (data) => {
+            console.log('Pump ID set successfully:', data.pump_id);
+          },
+          error: (error) => {
+            console.error('Error setting pump ID:', error);
+          }
         });
       });
-    });
 
-    document.addEventListener('click', function(event) {
-      if (!pumpDropdown.contains(event.target)) {
-        console.log('Document clicked!');
-        pumpDropdown.classList.remove('active');
-      }
+      $(document).click(function(event) {
+        if (!$pumpDropdown.is(event.target) && $pumpDropdown.has(event.target).length === 0) {
+          $pumpDropdown.removeClass('active');
+        }
+      });
     });
   </script>
 

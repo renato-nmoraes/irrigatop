@@ -73,18 +73,19 @@ def home():
 @app.route('/intensity', methods=['POST'])
 def process():
     intensity_value = int(request.form.get('slider'))
-    send_message_to_broker_and_store(message=intensity_value, topic="intensity")
+    # send_message_to_broker_and_store(message=intensity_value, topic="intensity")
 
     # Do something with the slider value
     # For example, print it to the console
     print(f"Slider value: {intensity_value}")
-    return intensity_value
+    return jsonify({'message': 'Slider value received'})
 
 @app.route('/pump', methods=['POST'])
 def handle_pump_selection():
     pump_id = request.form['pump_id']
     # Process the pump ID here (e.g., store it in a database, send it to a controller, etc.)
-    return pump_id
+    print(f"Pump ID: {pump_id}")
+    return jsonify({'pump_id': pump_id})  # Return the processed
 
 if __name__ == '__main__':
     with app.app_context():
