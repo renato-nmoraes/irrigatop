@@ -2,6 +2,8 @@ version: '3'
 services:
   irrigatop:
     container_name: irrigatop
+    networks:
+    - irrigatop_network
     restart: always
     build:
       context: .
@@ -10,16 +12,8 @@ services:
       - 5678:5678
     volumes:
       - ./data:/app/instance
-    environment:
-      - PYTHONUNBUFFERED=1
-      - MQTT_BROKER=35.184.104.130
-      - MQTT_TOPIC=irrigation
-      - MQTT_TOPIC_STATUS=irrigation/status
-      - MQTT_PORT=59687
-      - MQTT_USERNAME=irrigatop
-      - MQTT_PASSWORD=irrigatop
-      - BASIC_AUTH_USERNAME=irrigador
-      - BASIC_AUTH_PASSWORD=molhadinho123@#
+    env_file:
+      - ./.env
 
   irrigatop-debug:
     profiles: ["debug"]
@@ -44,3 +38,8 @@ services:
       - MQTT_PASSWORD=irrigatop
       - BASIC_AUTH_USERNAME=irrigador
       - BASIC_AUTH_PASSWORD=molhadinho123@#
+
+networks:
+  irrigatop_network:
+    name: irrigatop_network
+    external: true
