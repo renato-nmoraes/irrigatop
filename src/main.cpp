@@ -41,7 +41,7 @@ AsyncWebServer server(80);
 */
 // Set LED GPIO
 const int pump1Pin = 27;
-const int pump2Pin = 28;
+const int pump2Pin = 33;
 const int pwmPin = 16;
 const int boardLedPin = 2;
 int pumpPin = pump1Pin;
@@ -66,6 +66,7 @@ const int pwmChannel = 0;
 const int pwmResolution = 8;
 const char* pumpStatus;
 char intensityChar[3];
+char idChar[1];
 
 // Stores LED state
 String ledState;
@@ -99,6 +100,7 @@ void setup_mqtt() {
       Serial.println("connected");
       mqttClient.subscribe(mqttTopicReadAction);
       mqttClient.subscribe(mqttTopicReadIntensity);
+      mqttClient.subscribe(mqttTopicReadPump);
     } else {
       Serial.print("failed, rc=");
       Serial.print(mqttClient.state());
@@ -132,6 +134,14 @@ void publishPumpIntensity(const int intensity) {
     setup_mqtt();
   }
   mqttClient.publish(mqttTopicPublishIntensity, intensityChar);
+}
+
+void publishPumpId(const int id) {
+  itoa(id, idChar, 10);
+  if (!mqttClient.connected()) {
+    setup_mqtt();
+  }
+  mqttClient.publish(mqttTopicPublishPump, idChar);
 }
 
 void setPump(String status) {
@@ -179,11 +189,26 @@ void set_pwm_intensity(const int intensity) {
   //ledcWrite(pwmChannel, pwmPinValue);
 }
 
+void set_pump_id(const int pumpId) {
+  Serial.print("Pump ID:");
+  Serial.println(pumpId);
+
+  if (pumpId == 1) {
+    Serial.println("--- Setting Pump 1 Active ---");
+    pumpPin = pump1Pin;
+  } else if (pumpId == 2) {
+    Serial.println("--- Setting Pump 2 Active ---");
+    pumpPin = pump2Pin;
+  }
+  publishPumpId(pumpId);
+  //ledcWrite(pwmChannel, pwmPinValue);
+}
+
 void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   Serial.println("-------New message from Broker-----");
-  Serial.print("channel:");
+  Serial.println("MQTT Channel: ");
   Serial.println(topic);
-  Serial.print("data:");
+  Serial.println("Message data:");
   Serial.write(payload, length);
   Serial.println("");
   String messageTemp;
@@ -197,13 +222,7 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
     Serial.println("--- Setting Pump Intensity ---");
     set_pwm_intensity(messageTemp.toInt());
   } else if (strcmp(topic, mqttTopicReadPump) == 0) {
-    if (messageTemp.toInt() == 1) {
-      Serial.println("--- Setting Pump 1 Active ---");
-      pumpPin = 27
-    } else if (messageTemp.toInt() == 2) {
-      Serial.println("--- Setting Pump 2 Active ---");
-      pumpPin = 28
-    }
+    set_pump_id(messageTemp.toInt());
   }
   Serial.println();
 }
@@ -289,6 +308,7 @@ void setup() {
   setup_mqtt();
   publishPumpStatus(false);
   publishPumpIntensity(0);
+  publishPumpId(1);
 }
 
 void loop() {
