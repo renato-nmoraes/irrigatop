@@ -15,7 +15,7 @@ References:
 const char* ssid = "acougue_2.4G";
 const char* password = "BomDi@159";
 // MQTT
-const char* mqttServer = "35.184.104.130";
+const char* mqttServer = "34.42.244.45";
 const int mqttPort = 59687;
 const char* mqttUser = "irrigatop";
 const char* mqttPassword = "irrigatop";
