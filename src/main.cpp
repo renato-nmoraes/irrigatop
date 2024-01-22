@@ -297,7 +297,8 @@ void setup() {
   pinMode(pump1Pin, OUTPUT);
   pinMode(pump2Pin, OUTPUT);
   // Set outputs to HIGH (TURN OFF PUMP)
-  digitalWrite(pumpPin, HIGH);
+  digitalWrite(pump1Pin, HIGH);
+  digitalWrite(pump2Pin, HIGH);
 
   setup_spiffs();
   setup_wifi();
