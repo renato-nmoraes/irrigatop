@@ -9,16 +9,15 @@ References:
 #include <WiFi.h>
 
 /*
-  CREDENTIALS
+  Network and MQTT Configuration
 */
-// Network
-const char* ssid = "acougue_2.4G";
+const char* ssid = "acougue";
 const char* password = "BomDi@159";
-// MQTT
 const char* mqttServer = "34.42.244.45";
 const int mqttPort = 59687;
 const char* mqttUser = "irrigatop";
 const char* mqttPassword = "irrigatop";
+
 const char* mqttTopicReadAction = "irrigation/action";
 const char* mqttTopicReadIntensity = "irrigation/intensity";
 const char* mqttTopicReadPump = "irrigation/pump";
@@ -27,121 +26,101 @@ const char* mqttTopicPublishIntensity = "irrigation/status/intensity";
 const char* mqttTopicPublishPump = "irrigation/status/pump";
 
 /*
-  SERVER/CLIENT DECLARATION
+  GPIO Configuration
 */
-// Create PubSubClient
-WiFiClient wifiClient;
-PubSubClient mqttClient(wifiClient);
-
-// Create AsyncWebServer object on port 80
-AsyncWebServer server(80);
-
-/*
-  PORT CONFIGURATION
-*/
-// Set LED GPIO
 const int pump1Pin = 27;
 const int pump2Pin = 33;
 const int pwmPin = 16;
 const int boardLedPin = 2;
-int pumpPin = pump1Pin;
+
+int pumpPin = pump1Pin; // Active pump
+bool pumpState = false; // Tracks pump state (OFF = false, ON = true)
 
 /*
-  STATIC IP
+  PWM Configuration
 */
-// Set your Static IP address
-IPAddress local_IP(192, 168, 0, 69);
-// Set your Gateway IP address
-IPAddress gateway(192, 168, 0, 1);
-IPAddress subnet(255, 255, 255, 0);
-IPAddress primaryDNS(8, 8, 8, 8);    // optional
-IPAddress secondaryDNS(8, 8, 4, 4);  // optional
-
-/*
-  VARIABLES DECLARATION
-*/
-// PWM
 const int pwmFreq = 1000;
 const int pwmChannel = 0;
 const int pwmResolution = 8;
-const char* pumpStatus;
-char intensityChar[3];
-char idChar[1];
 
+/*
+  Static IP Configuration
+*/
+IPAddress local_IP(192, 168, 15, 69);
+IPAddress gateway(192, 168, 15, 1);
+IPAddress subnet(255, 255, 255, 0);
+IPAddress primaryDNS(8, 8, 8, 8);
+IPAddress secondaryDNS(8, 8, 4, 4);
+
+/*
+  WiFi and MQTT Configuration
+*/
+WiFiClient wifiClient;
+PubSubClient mqttClient(wifiClient);
+AsyncWebServer server(80);
+
+/*
+  System Variables
+*/
 // Stores LED state
-String ledState;
+bool ledState = false;
 // Variable to store the HTTP request
 String requestFromClient;
 
-// Replaces placeholder with LED state value
-String processor(const String& var) {
-  Serial.println(var);
-  if (var == "STATE") {
-    if (digitalRead(pumpPin)) {
-      ledState = "OFF";
-    } else {
-      ledState = "ON";
-    }
-    Serial.print(ledState);
-    return ledState;
-  }
-  return String();
-}
+unsigned long lastMQTTReconnectAttempt = 0;
+const unsigned long mqttReconnectInterval = 5000;
 
+unsigned long lastLEDUpdate = 0;
+const unsigned long ledBlinkInterval = 1000;
+
+// Setup connection to MQTT
 void setup_mqtt() {
-  // Loop until we're reconnected
-  while (!mqttClient.connected()) {
+  if (mqttClient.connected()) return;
+
+  if (millis() - lastMQTTReconnectAttempt > mqttReconnectInterval) {
+    lastMQTTReconnectAttempt = millis();
     Serial.print("Attempting MQTT connection...");
-    // Create a random client ID
-    String clientId = "ESP32Client-IrrigaTOP";
-    clientId += String(random(0xffff), HEX);
+    String clientId = "ESP32Client-IrrigaTOP" + String(random(0xffff), HEX);
     // Attempt to connect
     if (mqttClient.connect(clientId.c_str(), mqttUser, mqttPassword)) {
-      Serial.println("connected");
+      Serial.println("Connected to MQTT broker.");;
       mqttClient.subscribe(mqttTopicReadAction);
       mqttClient.subscribe(mqttTopicReadIntensity);
       mqttClient.subscribe(mqttTopicReadPump);
     } else {
-      Serial.print("failed, rc=");
+      Serial.print("MQTT connection failed, rc=");
       Serial.print(mqttClient.state());
-      Serial.println(" try again in 5 seconds");
-      // Wait 5 seconds before retrying
-      delay(5000);
     }
   }
 }
 
-void publishPumpStatus(bool pulse) {
-  if (digitalRead(pumpPin)) {
-    pumpStatus = "OFF";
-  } else {
-    pumpStatus = "ON";
+// Replaces placeholder with LED state value
+String processor(const String& var) {
+  if (var == "STATE") {
+    return pumpState ? "ON" : "OFF";
   }
+  return String();
+}
 
-  if (pulse) {
-    pumpStatus = "PULSE";
-  }
-
-  if (!mqttClient.connected()) {
-    setup_mqtt();
-  }
+// Publish pump status via MQTT
+void publishCurrentPumpStatus(bool publishStatus) {
+  // Publish thethe current status of the Pump from the Pin if its true, otherwise consider as PULSE
+  const char* pumpStatus = publishStatus ? (digitalRead(pumpPin) ? "OFF" : "ON") : "PULSE";
   mqttClient.publish(mqttTopicPublishAction, pumpStatus);
 }
 
-void publishPumpIntensity(const int intensity) {
-  itoa(intensity, intensityChar, 10);
-  if (!mqttClient.connected()) {
-    setup_mqtt();
-  }
-  mqttClient.publish(mqttTopicPublishIntensity, intensityChar);
+// Publish pump intensity via MQTT
+void publishPumpIntensity(int intensity) {
+  char intensityStr[4];
+  itoa(intensity, intensityStr, 10);
+  mqttClient.publish(mqttTopicPublishIntensity, intensityStr);
 }
 
-void publishPumpId(const int id) {
-  itoa(id, idChar, 10);
-  if (!mqttClient.connected()) {
-    setup_mqtt();
-  }
-  mqttClient.publish(mqttTopicPublishPump, idChar);
+// Publish active pump ID via MQTT
+void publishPumpId(int id) {
+  char idStr[2];
+  itoa(id, idStr, 10);
+  mqttClient.publish(mqttTopicPublishPump, idStr);
 }
 
 void setPump(String status) {
@@ -162,7 +141,8 @@ void setPump(String status) {
     delay(2000);
     digitalWrite(pumpPin, HIGH);
   }
-  publishPumpStatus(pulse);
+  // Publish PULSE otherwise will publish the current status of the Pump from the Pin
+  publishCurrentPumpStatus(!pulse);
 }
 
 void setup_pwm() {
@@ -175,24 +155,16 @@ void setup_pwm() {
 void set_pwm_intensity(const int intensity) {
   Serial.print("Pump Intensity:");
   Serial.println(intensity);
-  uint32_t pwmPinValue;
-  if (intensity != 0) {
-    pwmPinValue = 2.56*intensity; //1.28 * intensity + 128;
-  } else {
-    pwmPinValue = 0;
-  }
+  uint32_t pwmPinValue = (intensity * 256) / 100; // Scale from 0-100% to 0-255
+
   Serial.print("PWM Pin Value:");
   Serial.println(pwmPinValue);
 
   analogWrite(pwmPin, pwmPinValue);
   publishPumpIntensity(intensity);
-  //ledcWrite(pwmChannel, pwmPinValue);
 }
 
 void set_pump_id(const int pumpId) {
-  Serial.print("Pump ID:");
-  Serial.println(pumpId);
-
   if (pumpId == 1) {
     Serial.println("--- Setting Pump 1 Active ---");
     pumpPin = pump1Pin;
@@ -201,30 +173,22 @@ void set_pump_id(const int pumpId) {
     pumpPin = pump2Pin;
   }
   publishPumpId(pumpId);
-  //ledcWrite(pwmChannel, pwmPinValue);
 }
 
 void mqtt_callback(char* topic, byte* payload, unsigned int length) {
-  Serial.println("-------New message from Broker-----");
-  Serial.println("MQTT Channel: ");
-  Serial.println(topic);
-  Serial.println("Message data:");
-  Serial.write(payload, length);
-  Serial.println("");
-  String messageTemp;
-  for (int i = 0; i < length; i++) {
-    messageTemp += (char)payload[i];
-  }
+  String messageTemp = String((char*)payload).substring(0, length);
+  Serial.printf("\nMQTT Topic: %s, Message: %s\n", topic, messageTemp.c_str());
+
   if (strcmp(topic, mqttTopicReadAction) == 0) {
-    Serial.println("--- Setting Pump ---");
+    Serial.printf("Set Pump Action: %s\n", messageTemp.c_str());
     setPump(messageTemp);
   } else if (strcmp(topic, mqttTopicReadIntensity) == 0) {
-    Serial.println("--- Setting Pump Intensity ---");
+    Serial.printf("Set Pump Intensity: %s\n", messageTemp.c_str());
     set_pwm_intensity(messageTemp.toInt());
   } else if (strcmp(topic, mqttTopicReadPump) == 0) {
     set_pump_id(messageTemp.toInt());
   }
-  Serial.println();
+  Serial.printf("\n");
 }
 
 void setup_asyncWebServerRoutes() {
@@ -267,7 +231,7 @@ void setup_wifi() {
   delay(10);
   // Configures static IP address
   if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS)) {
-    Serial.println("STA Failed to configure");
+    Serial.println("Failed to configure static IP");
   }
 
   // Connect to Wi-Fi network with SSID and password
@@ -296,6 +260,7 @@ void setup() {
   pinMode(boardLedPin, OUTPUT);
   pinMode(pump1Pin, OUTPUT);
   pinMode(pump2Pin, OUTPUT);
+
   // Set outputs to HIGH (TURN OFF PUMP)
   digitalWrite(pump1Pin, HIGH);
   digitalWrite(pump2Pin, HIGH);
@@ -306,19 +271,21 @@ void setup() {
   setup_pwm();
   mqttClient.setServer(mqttServer, mqttPort);
   mqttClient.setCallback(mqtt_callback);
-  setup_mqtt();
-  publishPumpStatus(false);
+
+  publishCurrentPumpStatus(false);
   publishPumpIntensity(0);
   publishPumpId(1);
 }
 
 void loop() {
+  // Non-blocking MQTT handling
+  setup_mqtt();
   mqttClient.loop();
-  // put your main code here, to run repeatedly:
-  digitalWrite(boardLedPin, HIGH);
-  // Serial.println("LED is on");
-  delay(1000);
-  digitalWrite(boardLedPin, LOW);
-  // Serial.println("LED is off");
-  delay(1000);
+
+  // Non-blocking LED blinking
+  if (millis() - lastLEDUpdate > ledBlinkInterval) {
+    lastLEDUpdate = millis();
+    ledState = !ledState;
+    digitalWrite(boardLedPin, ledState ? HIGH : LOW);
+  }
 }
