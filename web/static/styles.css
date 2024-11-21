@@ -1,276 +1,346 @@
 body {
   background-color: #2c3e50;
   color: #ddd;
-  font-family: Arial, sans-serif;
+  font-family: 'Segoe UI', Arial, sans-serif;
   margin: 0;
   padding: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .top-bar {
-  background-color: #4b6b7d;
-  padding: 10px;
+  background-color: #34495e;
+  padding: 15px;
   text-align: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
 .title {
   margin: 0;
-  font-size: 24px;
+  font-size: 28px;
   color: #ecf0f1;
+  font-weight: 600;
+}
+
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+  flex: 1;
 }
 
 .state-container {
-  text-align: center;
-  margin-top: 20px;
+  background-color: #34495e;
+  border-radius: 10px;
+  padding: 20px;
+  margin: 20px auto;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 20px;
+  justify-content: space-between;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .state-label {
-  font-weight: bold;
+  font-weight: 600;
   font-size: 18px;
   color: #bbb;
+  margin-right: 10px;
 }
 
 .state-value {
   display: inline-block;
-  padding: 5px 10px;
-  background-color: #34495e;
+  padding: 8px 15px;
+  background-color: #2c3e50;
   color: #fff;
   font-size: 16px;
-  border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  border-radius: 8px;
+  min-width: 60px;
+  text-align: center;
+}
+
+.pump-select-container {
+  text-align: center;
+  padding: 20px;
+}
+
+.pump-select-container label {
+  display: block;
+  margin-bottom: 15px;
+  font-size: 18px;
+  color: #bbb;
+}
+
+.custom-dropdown {
+  position: relative;
+  width: 200px;
+  margin: 0 auto;
+  background-color: #34495e;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.selected-pump {
+  padding: 12px 20px;
+  text-align: center;
+  color: #fff;
+}
+
+.dropdown-options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: #34495e;
+  border-radius: 0 0 8px 8px;
+  overflow: hidden;
+  display: none;
+  z-index: 100;
+}
+
+.dropdown-options div {
+  padding: 12px 20px;
+  color: #fff;
+}
+
+.dropdown-options div:hover {
+  background-color: #2c3e50;
+}
+
+.custom-dropdown.active .dropdown-options {
+  display: block;
 }
 
 .button-container {
-  text-align: center;
-  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin: 20px 0;
 }
 
 .button {
-  display: inline-block;
-  padding: 16px 32px;
-  color: #fff;
+  padding: 12px 30px;
   border: none;
-  text-decoration: none;
-  font-size: 20px;
-  font-weight: bold;
-  text-transform: uppercase;
-  letter-spacing: 2px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
   cursor: pointer;
-  transition: background-color 0.3s, color 0.3s;
-  border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.button:hover {
+  transform: translateY(-2px);
 }
 
 .button-on {
   background-color: #2ecc71;
 }
 
-.button-pulse {
-  background-color: #D3D3D3;
-}
-
 .button-off {
   background-color: #e74c3c;
 }
 
-.button:hover {
-  opacity: 0.8;
+.button-pulse {
+  background-color: #3498db;
 }
 
-/* Slider container */
 .slider-container {
-  text-align: center;
-  margin-top: 20px;
-}
-
-/* Slider input */
-.slider-input {
-  width: 80%;
-  margin: 0 auto;
-  display: block;
-}
-
-@media handheld and (max-width: 480px) {
-  .title {
-      font-size: 40px;
-  }
-
-  .button-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .button {
-    margin: 10px 0;
-    padding: 14px 28px;
-    font-size: 40px;
-  }
-
-  .state-label {
-    font-size: 40px;
-  }
-
-  .state-value {
-    padding: 4px 8px;
-    font-size: 40px;
-  }
-
-  /* Slider container */
-  .slider-container {
-    margin-top: 10px;
-  }
-
-  /* Slider input */
-  .slider-input {
-    width: 100%;
-  }
-}
-
-/* Pump selection container */
-.pump-select-container {
-  margin-top: 20px;
-  text-align: center;
-  margin-bottom: 20px;
-}
-
-/* Pump label */
-.pump-select-container label {
-  font-weight: bold;
-  font-size: 18px;
-  color: #bbb;
-  margin-bottom: 5px;
-}
-
-/* Custom dropdown */
-.pump-select-container .custom-dropdown {
-  position: relative;
-  display: inline-block;
-  width: 200px;
-  height: 36px;
-  background-color: #4b6b7d;
-  /* border: none; */
-  border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
-  padding: 0 10px;
-  cursor: pointer;
-}
-
-.pump-select-container .custom-dropdown:hover {
-  opacity: 0.8;
-}
-
-.pump-select-container .custom-dropdown .selected-pump {
-  display: block;
-  padding: 5px 10px;
-  font-size: 16px;
-  color: #fff;
-  text-align: center;
-  line-height: 1.5;
-}
-
-.pump-select-container .custom-dropdown .dropdown-options {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  width: 100%;
   background-color: #34495e;
-  border-radius: 0 0 5px 5px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
-  display: none;
-  z-index: 1;
+  padding: 25px;
+  border-radius: 10px;
+  margin: 20px auto;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  position: relative;
 }
 
-.pump-select-container .custom-dropdown .dropdown-options div {
-  padding: 10px;
-  color: #fff;
-  font-size: 16px;
+input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 6px;
+  background: linear-gradient(to right, #3498db 0%, #3498db 50%, #2c3e50 50%, #2c3e50 100%);
+  border-radius: 3px;
+  outline: none;
+  position: relative;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 6px;
+  background: #2c3e50;
+  border-radius: 3px;
+  border: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #3498db;
+  border: 2px solid #fff;
+  border-radius: 50%;
   cursor: pointer;
+  margin-top: -7px;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+  position: relative;
+  z-index: 2;
 }
 
-.pump-select-container .custom-dropdown .dropdown-options div:hover {
-  background-color: #2c3e50;
-}
-
-/* Active pump options */
-.pump-select-container .custom-dropdown.active .dropdown-options {
-  padding: 10px;
-  display: block;
-}
-
-/* Optional pump icons */
-.pump-select-container .custom-dropdown .pump-icon {
-  margin-right: 5px;
-}
-
-/* Optional pump color coordination */
-.pump-select-container .custom-dropdown .selected-pump.pump-1 {
-  background-color: #2ecc71; /* Match button-on color */
-  padding: 10px;
-}
-
-.pump-select-container .custom-dropdown .selected-pump.pump-2 {
-  background-color: #3498db; /* Adjust as desired */
-}
-
-/* Add this to your existing styles.css */
-.notification {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 15px 25px;
-    border-radius: 5px;
-    color: white;
-    font-weight: bold;
-    opacity: 0;
-    transform: translateY(-20px);
-    transition: all 0.3s ease-in-out;
-    z-index: 1000;
-    max-width: 300px;
-}
-
-.notification.show {
-    opacity: 1;
-    transform: translateY(0);
-}
-
-.notification.error {
-    background-color: #e74c3c;
-    box-shadow: 0 2px 10px rgba(231, 76, 60, 0.5);
-}
-
-.notification.success {
-    background-color: #2ecc71;
-    box-shadow: 0 2px 10px rgba(46, 204, 113, 0.5);
-}
-
-/* Add these styles for the health indicator */
-.health-indicator {
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    margin-left: 10px;
-    transition: background-color 0.3s ease;
-}
-
-.health-indicator.online {
-    background-color: #2ecc71;
-    box-shadow: 0 0 8px rgba(46, 204, 113, 0.5);
-}
-
-.health-indicator.offline {
-    background-color: #e74c3c;
-    box-shadow: 0 0 8px rgba(231, 76, 60, 0.5);
+input[type="number"] {
+  width: 60px;
+  padding: 8px;
+  border: 1px solid #3498db;
+  border-radius: 4px;
+  background: #2c3e50;
+  color: #fff;
+  text-align: center;
+  font-size: 16px;
 }
 
 .health-status {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 14px;
-    color: #bbb;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 15px;
+  background-color: #2c3e50;
+  border-radius: 8px;
+}
+
+.health-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.health-indicator.online {
+  background-color: #2ecc71;
+  box-shadow: 0 0 8px #2ecc71;
+}
+
+.health-indicator.offline {
+  background-color: #e74c3c;
+  box-shadow: 0 0 8px #e74c3c;
+}
+
+.notification {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  padding: 15px 30px;
+  border-radius: 10px;
+  color: white;
+  font-weight: 500;
+  font-size: 16px;
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 1000;
+  text-align: center;
+  min-width: 200px;
+  max-width: 80%;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.notification.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.notification.error {
+  background-color: #e74c3c;
+  border-left: 5px solid #c0392b;
+}
+
+.notification.success {
+  background-color: #2ecc71;
+  border-left: 5px solid #27ae60;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 15px;
+  }
+
+  .state-container {
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .button-container {
+    flex-direction: column;
+  }
+
+  .button {
+    width: 100%;
+    padding: 16px 30px;
+    font-size: 18px;
+    margin: 5px 0;
+  }
+
+  .slider-container {
+    flex-direction: column;
+    gap: 15px;
+    padding: 20px;
+  }
+
+  input[type="range"] {
+    width: 100%;
+    height: 8px;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    width: 28px;
+    height: 28px;
+    margin-top: -10px;
+  }
+
+  input[type="number"] {
+    width: 80px;
+    padding: 12px;
+    font-size: 18px;
+  }
+
+  .custom-dropdown {
+    width: 240px;
+  }
+
+  .selected-pump {
+    padding: 15px 20px;
+    font-size: 18px;
+  }
+
+  .dropdown-options div {
+    padding: 15px 20px;
+    font-size: 18px;
+  }
+
+  .notification {
+    bottom: 30px;
+    padding: 12px 20px;
+    font-size: 15px;
+    width: 90%;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #1a2634;
+  }
+
+  .top-bar {
+    background-color: #2c3e50;
+  }
+
+  .state-container,
+  .slider-container {
+    background-color: #2c3e50;
+  }
+
+  .state-value,
+  input[type="number"],
+  .health-status {
+    background-color: #1a2634;
+  }
 }

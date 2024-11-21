@@ -50,7 +50,7 @@
   </form>
   <form method="POST" action="/intensity" id="slider-form">
     <div class="slider-container">
-      <input type="range" value="0" min="0" max="100" name="slider" id="range"">
+      <input type="range" value="0" min="0" max="100" name="slider" id="range">
       <input type="number" id="rangenumber" min="0" max="100" value="0">
     </div>
   </form>
@@ -163,7 +163,8 @@
         $(this).toggleClass("active");
       });
   
-      $pumpSelect.on("click", ".pump-option", function() {
+      $pumpSelect.on("click", ".pump-option", function(event) {
+        event.stopPropagation();
         const selectedText = $(this).text();
         const pumpId = $(this).data("value");
         
@@ -201,6 +202,12 @@
         clearTimeout(debounceTimeout);
         debounceTimeout = setTimeout(fn, delay);
       }
+
+      // Add this to update slider background as it moves
+      $slider.on("input", function() {
+        const value = ((this.value - this.min) / (this.max - this.min)) * 100;
+        this.style.background = `linear-gradient(to right, #3498db 0%, #3498db ${value}%, #2c3e50 ${value}%, #2c3e50 100%)`;
+      });
     });
   </script>
 
