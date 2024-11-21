@@ -1,12 +1,19 @@
 import logging
-from flask import Flask, render_template, request, jsonify
+import threading
+import time
+from datetime import datetime
+
+from flask import Flask, render_template, request, jsonify, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_basicauth import BasicAuth
 import paho.mqtt.client as mqtt
-from datetime import datetime, timedelta
-import threading
-import time
+
+# Import configuration
+try:
+    import config_local as config
+except ImportError:
+    import config
 
 # Set up logging
 logging.basicConfig(
@@ -16,29 +23,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Import configuration
-try:
-    import config_local as config
-except ImportError:
-    import config
+# Constants
+MAIN_TEMPLATE = "index.html"
+HEALTH_CHECK_TIMEOUT = 30  # seconds
 
 # Global variables
 mqtt_connected = False
 last_health_check = None
-HEALTH_CHECK_TIMEOUT = 30  # seconds
 
-# Flask app and database setup
+# Flask app setup
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = config.SQLALCHEMY_DATABASE_URI
-db = SQLAlchemy(app)
-migrate = Migrate(app, db)
-
-# Basic authentication setup
 app.config["BASIC_AUTH_USERNAME"] = config.BASIC_AUTH_USERNAME
 app.config["BASIC_AUTH_PASSWORD"] = config.BASIC_AUTH_PASSWORD
+
+# Extensions initialization
+db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 basic_auth = BasicAuth(app)
 
-# MQTT configuration
+# MQTT client setup
 mqtt_client = mqtt.Client()
 mqtt_client.username_pw_set(config.MQTT_USERNAME, config.MQTT_PASSWORD)
 
@@ -51,7 +55,6 @@ class Message(db.Model):
         return f"<Message {self.id}: {self.content}>"
 
 
-# MQTT Callbacks
 def on_connect(client, userdata, flags, rc):
     connection_codes = {
         0: "Connected successfully",
@@ -65,19 +68,15 @@ def on_connect(client, userdata, flags, rc):
     if rc == 0:
         logger.info("MQTT connected successfully")
         try:
-            # Subscribe to topics
             status_topic = f"{config.MQTT_TOPIC}/status/action"
             health_topic = f"{config.MQTT_TOPIC}/health"
 
-            logger.debug(f"Subscribing to topic: {status_topic}")
             client.subscribe(status_topic)
-            logger.debug(f"Subscribing to topic: {health_topic}")
             client.subscribe(health_topic)
+            logger.info(f"Subscribed to topics: {status_topic}, {health_topic}")
 
-            # Add a flag to indicate successful connection
             global mqtt_connected
             mqtt_connected = True
-            logger.info("MQTT topic subscriptions completed")
         except Exception as e:
             logger.error(f"Error during topic subscription: {str(e)}")
     else:
@@ -87,17 +86,14 @@ def on_connect(client, userdata, flags, rc):
 
 def on_message(client, userdata, message):
     global last_health_check
-
     topic = message.topic
     payload = message.payload.decode()
 
     if topic.endswith("/health"):
-        # Update health check timestamp
         last_health_check = datetime.now()
         logger.info(f"Health check received at {last_health_check}")
     elif topic.endswith("/status/action"):
         logger.info(f"Pump status received: {payload}")
-        # Save status to database using app context
         with app.app_context():
             try:
                 db.session.add(Message(content=payload))
@@ -114,32 +110,22 @@ def setup_mqtt():
     mqtt_client.on_message = on_message
 
     try:
-        # Add connection retry logic
         retry_count = 0
         max_retries = 3
-        logger.info(
-            f"Attempting to connect to MQTT broker at {config.MQTT_BROKER}:{config.MQTT_PORT}"
-        )
+        broker_address = f"{config.MQTT_BROKER}:{config.MQTT_PORT}"
+        logger.info(f"Attempting to connect to MQTT broker at {broker_address}")
 
         while retry_count < max_retries:
             try:
-                logger.debug(f"Connection attempt {retry_count + 1} of {max_retries}")
                 mqtt_client.connect(config.MQTT_BROKER, int(config.MQTT_PORT))
-                logger.info("Initial MQTT connection successful")
+                logger.info("MQTT connection successful")
                 break
             except Exception as e:
-                logger.error(
-                    f"MQTT connection attempt {retry_count + 1} failed: {str(e)}"
-                )
                 retry_count += 1
+                logger.error(f"MQTT connection attempt {retry_count} failed: {str(e)}")
                 if retry_count < max_retries:
-                    logger.info("Waiting 2 seconds before retry...")
                     time.sleep(2)
-                else:
-                    logger.error("All MQTT connection attempts failed")
 
-        # Start MQTT loop in a separate thread
-        logger.debug("Starting MQTT loop thread")
         mqtt_thread = threading.Thread(target=mqtt_client.loop_forever, daemon=True)
         mqtt_thread.start()
         logger.info("MQTT loop thread started")
@@ -149,6 +135,29 @@ def setup_mqtt():
         raise
 
 
+def send_message(payload, topic_suffix):
+    if not mqtt_connected:
+        error_msg = "Cannot send message: MQTT client not connected"
+        logger.error(error_msg)
+        raise Exception(error_msg)
+
+    full_topic = f"{config.MQTT_TOPIC}/{topic_suffix}"
+    try:
+        result = mqtt_client.publish(full_topic, str(payload))
+        if result.rc != 0:
+            error_msg = f"Failed to publish message: return code {result.rc}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
+
+        result.wait_for_publish()
+        logger.info(f"Message '{payload}' published to '{full_topic}'")
+
+    except Exception as e:
+        error_msg = f"Error publishing message to {full_topic}: {str(e)}"
+        logger.error(error_msg)
+        raise Exception(error_msg)
+
+
 # Routes
 @app.route("/", methods=["GET", "POST"])
 @basic_auth.required
@@ -156,31 +165,54 @@ def home():
     if request.method == "POST":
         action = request.form.get("action")
         if action:
-            send_message(action, "action")
-    return render_template("index.html")
+            try:
+                send_message(action, "action")
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return jsonify({"success": True, "message": "Action sent successfully"})
+                return redirect(url_for("home"))
+            except Exception as e:
+                logger.error(f"Failed to send action: {str(e)}")
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return jsonify(
+                        {
+                            "success": False,
+                            "message": "Failed to send command to pump. Please try again later.",
+                        }
+                    ), 500
+                return redirect(url_for("home"))
+
+    return render_template(MAIN_TEMPLATE)
 
 
 @app.route("/status")
 def get_pump_status():
     try:
         message = Message.query.order_by(Message.id.desc()).first()
-        if message:
-            return jsonify({"status": message.content})
-        return jsonify({"status": "No status available"})
+        return jsonify(
+            {
+                "success": True,
+                "status": message.content if message else "No status available",
+            }
+        )
     except Exception as e:
-        logger.error("Error fetching pump status")
-        return jsonify({"status": "Error fetching status", "error": str(e)})
+        logger.error(f"Error fetching pump status: {str(e)}")
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Unable to fetch pump status. Please try again later.",
+                    "status": "error",
+                }
+            ),
+            500,
+        )
 
 
 @app.route("/health")
 def get_health_status():
-    global last_health_check
-    now = datetime.now()
-
-    if (
-        last_health_check
-        and (now - last_health_check).total_seconds() <= HEALTH_CHECK_TIMEOUT
-    ):
+    if last_health_check and (
+        datetime.now() - last_health_check
+    ).total_seconds() <= HEALTH_CHECK_TIMEOUT:
         return jsonify({"status": "online"})
     return jsonify({"status": "offline"})
 
@@ -190,10 +222,30 @@ def set_intensity():
     try:
         intensity_value = int(request.form.get("slider", 0))
         send_message(intensity_value, "intensity")
-        return jsonify({"message": "Intensity updated", "value": intensity_value})
+        return jsonify(
+            {
+                "success": True,
+                "message": "Intensity updated successfully",
+                "value": intensity_value,
+            }
+        )
+    except ValueError:
+        logger.error("Invalid intensity value provided")
+        return (
+            jsonify({"success": False, "message": "Please provide a valid intensity value"}),
+            400,
+        )
     except Exception as e:
-        logger.error("Failed to update intensity")
-        return jsonify({"message": "Failed to update intensity", "error": str(e)})
+        logger.error(f"Failed to update intensity: {str(e)}")
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Failed to update intensity. Please try again later.",
+                }
+            ),
+            500,
+        )
 
 
 @app.route("/pump", methods=["POST"])
@@ -201,58 +253,31 @@ def select_pump():
     try:
         pump_id = int(request.form.get("pump_id", 0))
         send_message(pump_id, "pump")
-        return jsonify({"message": "Pump updated", "pump_id": pump_id})
+        return jsonify(
+            {"success": True, "message": "Pump selected successfully", "pump_id": pump_id}
+        )
+    except ValueError:
+        logger.error("Invalid pump ID provided")
+        return (
+            jsonify({"success": False, "message": "Please provide a valid pump ID"}),
+            400,
+        )
     except Exception as e:
-        logger.error("Failed to update pump")
-        return jsonify({"message": "Failed to update pump", "error": str(e)})
-
-
-def send_message(payload, topic_suffix):
-    logger.debug(
-        f"Attempting to send message. Payload: {payload}, Topic suffix: {topic_suffix}"
-    )
-
-    if not mqtt_connected:
-        error_msg = "Cannot send message: MQTT client not connected"
-        logger.error(error_msg)
-        raise Exception(error_msg)
-
-    full_topic = f"{config.MQTT_TOPIC}/{topic_suffix}"
-    try:
-        logger.debug(f"Publishing to topic {full_topic}")
-        result = mqtt_client.publish(full_topic, str(payload))
-
-        if result.rc == 0:
-            logger.info(
-                f"Successfully published message '{payload}' to topic '{full_topic}'"
-            )
-        else:
-            error_msg = f"Failed to publish message: return code {result.rc}"
-            logger.error(error_msg)
-            raise Exception(error_msg)
-
-        # Wait for message to be sent
-        result.wait_for_publish()
-        logger.debug("Message delivery confirmed")
-
-    except Exception as e:
-        error_msg = f"Error publishing message to topic {full_topic}: {str(e)}"
-        logger.error(error_msg)
-        raise Exception(error_msg)
+        logger.error(f"Failed to select pump: {str(e)}")
+        return (
+            jsonify(
+                {"success": False, "message": "Failed to select pump. Please try again later."}
+            ),
+            500,
+        )
 
 
 def init_app(app):
     logger.info("Initializing application...")
-
     with app.app_context():
-        logger.info("Creating database tables...")
         db.create_all()
-
-        logger.info("Setting up MQTT connection...")
         setup_mqtt()
-
-        # Wait a moment for MQTT to connect
-        time.sleep(2)
+        time.sleep(2)  # Wait for MQTT connection
 
         if not mqtt_connected:
             logger.warning("⚠️ Starting Flask app without MQTT connection!")
@@ -263,7 +288,6 @@ def init_app(app):
 # Initialize the app
 init_app(app)
 
-# Keep the __main__ block for local development
 if __name__ == "__main__":
     logger.info("Starting Flask development server...")
     app.run(debug=True)

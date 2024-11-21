@@ -28,10 +28,16 @@
   <form method="POST">
     <div class="container">
       <div class="state-container">
-        <span class="state-label">Status da bomba:</span>
-        <span id="state-placeholder" class="state-value">
-          <!-- {{ pump_status }} -->
-        </span>
+        <div>
+          <span class="state-label">Status da bomba:</span>
+          <span id="state-placeholder" class="state-value">
+            <!-- {{ pump_status }} -->
+          </span>
+        </div>
+        <div class="health-status">
+          <span>Conexão:</span>
+          <div id="health-indicator" class="health-indicator offline"></div>
+        </div>
       </div>
       <div class="button-container">
         <button type="submit" name="action" value="ON" class="button button-action button-on">ON</button>
@@ -48,6 +54,7 @@
       <input type="number" id="rangenumber" min="0" max="100" value="0">
     </div>
   </form>
+  <div id="notification" class="notification"></div>
   <script>
     $(document).ready(() => {
       const $slider = $("#range");
@@ -56,65 +63,139 @@
       const $pumpSelect = $("#pump-select");
       const $pumpForm = $("#pump-form");
   
+      // Notification function
+      function showNotification(message, type = 'error') {
+        const $notification = $('#notification');
+        $notification
+          .text(message)
+          .removeClass('error success')
+          .addClass(type)
+          .addClass('show');
+  
+        setTimeout(() => {
+          $notification.removeClass('show');
+        }, 3000);
+      }
+  
       // Update the pump status and health status every 5 seconds
       const updateStatus = () => {
-        $.getJSON("/status", (data) => $statePlaceholder.text(data.status || "Unknown"));
-        // Additional health-check status can be updated here if required
+        $.getJSON("/status")
+          .done((data) => {
+            if (data.success) {
+              $statePlaceholder.text(data.status || "Unknown");
+            } else {
+              showNotification(data.message);
+            }
+          })
+          .fail(() => {
+            showNotification("Failed to fetch pump status");
+          });
+  
+        $.getJSON("/health")
+          .done((data) => {
+            const $healthIndicator = $("#health-indicator");
+            $healthIndicator
+              .removeClass("online offline")
+              .addClass(data.status);
+          })
+          .fail(() => {
+            $("#health-indicator").removeClass("online").addClass("offline");
+          });
       };
       setInterval(updateStatus, 5000);
       updateStatus();
   
       // Handle pump action buttons
-      $("#action-form button").click(function (event) {
+      $("form button[name='action']").click(function(event) {
         event.preventDefault();
-        const action = $(this).data("action");
-        $.post("/", { action })
-          .done(() => updateStatus())
-          .fail((error) => console.error("Action failed:", error));
+        const action = $(this).val();
+        
+        $.ajax({
+          url: "/",
+          type: "POST",
+          data: { action: action },
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          success: function(response) {
+            if (response.success) {
+              showNotification(response.message, 'success');
+              updateStatus();
+            } else {
+              showNotification(response.message);
+            }
+          },
+          error: function() {
+            showNotification("Failed to send command to pump");
+          }
+        });
       });
   
       // Handle slider updates
-      $slider.on("input change", function () {
+      function updateSlider(value) {
+        $.post("/intensity", { slider: value })
+          .done((response) => {
+            if (response.success) {
+              showNotification(response.message, 'success');
+            } else {
+              showNotification(response.message);
+            }
+          })
+          .fail(() => {
+            showNotification("Failed to update intensity");
+          });
+      }
+  
+      $slider.on("input change", function() {
         const value = $(this).val();
         $sliderValue.val(value);
-        debounce(() => $.post("/intensity", { slider: value })
-          .fail((error) => console.error("Slider update failed:", error)), 300);
+        debounce(() => updateSlider(value), 300);
       });
   
-      $sliderValue.on("change", function () {
+      $sliderValue.on("change", function() {
         const value = $(this).val();
-        $slider.val(value).trigger("change");
+        $slider.val(value);
+        updateSlider(value);
       });
   
       // Handle pump selection dropdown
-      $pumpSelect.on("click", function () {
+      $pumpSelect.on("click", function() {
         $(this).toggleClass("active");
       });
   
-      $pumpSelect.on("click", ".pump-option", function () {
+      $pumpSelect.on("click", ".pump-option", function() {
         const selectedText = $(this).text();
-        // Set the selected pump text and update hidden pump ID input field
+        const pumpId = $(this).data("value");
+        
         $pumpSelect.find(".selected-pump").text(selectedText);
         $pumpSelect.removeClass("active");
-
-        const pumpId = $(this).data("value");
         $("#pump_id").val(pumpId);
-
-        // Send the selected pump ID to the server
+  
         $.ajax({
           url: $pumpForm.attr("action"),
           type: "POST",
           data: $pumpForm.serialize(),
-          success: function (data) {
-            console.log("Pump selection sent successfully:", data.pump_id);
+          success: function(response) {
+            if (response.success) {
+              showNotification(response.message, 'success');
+            } else {
+              showNotification(response.message);
+            }
           },
-          error: function (error) {
-            console.error("Error sending pump selection:", error);
+          error: function() {
+            showNotification("Failed to select pump");
           }
         });
       });
-
-      // Debounce function to limit the number of times a function is executed
+  
+      // Close dropdown when clicking outside
+      $(document).on("click", function(event) {
+        if (!$(event.target).closest('.custom-dropdown').length) {
+          $pumpSelect.removeClass("active");
+        }
+      });
+  
+      // Debounce function
       let debounceTimeout;
       function debounce(fn, delay) {
         clearTimeout(debounceTimeout);
