@@ -1,3 +1,4 @@
+import logging
 from flask import Flask, render_template, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -5,6 +6,10 @@ from flask_basicauth import BasicAuth
 import paho.mqtt.client as mqtt
 from datetime import datetime, timedelta
 import threading
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
 
 # Import configuration
 try:
@@ -43,12 +48,12 @@ class Message(db.Model):
 # MQTT Callbacks
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
-        print("MQTT connected successfully.")
+        logger.info("MQTT connected successfully.")
         # Subscribe to topics
         client.subscribe(f"{config.MQTT_TOPIC}/status/action")
         client.subscribe(f"{config.MQTT_TOPIC}/health")
     else:
-        print(f"MQTT connection failed with code {rc}")
+        logger.error(f"MQTT connection failed with code {rc}")
 
 
 def on_message(client, userdata, message):
@@ -60,9 +65,9 @@ def on_message(client, userdata, message):
     if topic.endswith("/health"):
         # Update health check timestamp
         last_health_check = datetime.now()
-        print(f"Health check received at {last_health_check}")
+        logger.info(f"Health check received at {last_health_check}")
     elif topic.endswith("/status/action"):
-        print(f"Pump status received: {payload}")
+        logger.info(f"Pump status received: {payload}")
         # Save status to database
         with app.app_context():
             db.session.add(Message(content=payload))
@@ -76,7 +81,7 @@ def setup_mqtt():
     try:
         mqtt_client.connect(config.MQTT_BROKER, int(config.MQTT_PORT))
     except Exception as e:
-        print(f"Error connecting to MQTT broker: {e}")
+        logger.error(f"Error connecting to MQTT broker: {e}")
 
     # Start MQTT loop in a separate thread
     threading.Thread(target=mqtt_client.loop_forever, daemon=True).start()
@@ -101,6 +106,7 @@ def get_pump_status():
             return jsonify({"status": message.content})
         return jsonify({"status": "No status available"})
     except Exception as e:
+        logger.error("Error fetching pump status")
         return jsonify({"status": "Error fetching status", "error": str(e)})
 
 
@@ -121,6 +127,7 @@ def set_intensity():
         send_message(intensity_value, "intensity")
         return jsonify({"message": "Intensity updated", "value": intensity_value})
     except Exception as e:
+        logger.error("Failed to update intensity")
         return jsonify({"message": "Failed to update intensity", "error": str(e)})
 
 
@@ -131,6 +138,7 @@ def select_pump():
         send_message(pump_id, "pump")
         return jsonify({"message": "Pump updated", "pump_id": pump_id})
     except Exception as e:
+        logger.error("Failed to update pump")
         return jsonify({"message": "Failed to update pump", "error": str(e)})
 
 
@@ -139,9 +147,9 @@ def send_message(payload, topic_suffix):
     full_topic = f"{config.MQTT_TOPIC}/{topic_suffix}"
     try:
         mqtt_client.publish(full_topic, payload)
-        print(f"Message '{payload}' sent to topic '{full_topic}'")
+        logger.info(f"Message '{payload}' sent to topic '{full_topic}'")
     except Exception as e:
-        print(f"Error publishing message to topic {full_topic}: {e}")
+        logger.error(f"Error publishing message to topic {full_topic}")
 
 
 # App startup
