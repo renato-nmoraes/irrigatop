@@ -24,6 +24,7 @@ const char* mqttTopicReadPump = "irrigation/pump";
 const char* mqttTopicPublishAction = "irrigation/status/action";
 const char* mqttTopicPublishIntensity = "irrigation/status/intensity";
 const char* mqttTopicPublishPump = "irrigation/status/pump";
+const char* mqttTopicPublishHealth = "irrigation/health";
 
 /*
   GPIO Configuration
@@ -72,6 +73,9 @@ const unsigned long mqttReconnectInterval = 5000;
 
 unsigned long lastLEDUpdate = 0;
 const unsigned long ledBlinkInterval = 1000;
+
+unsigned long lastHealthCheck = 0;
+const unsigned long healthCheckInterval = 10000; // Send health check every 10 seconds
 
 // Setup connection to MQTT
 void setup_mqtt() {
@@ -287,5 +291,12 @@ void loop() {
     lastLEDUpdate = millis();
     ledState = !ledState;
     digitalWrite(boardLedPin, ledState ? HIGH : LOW);
+  }
+
+  // Non-blocking health check publishing
+  if (mqttClient.connected() && millis() - lastHealthCheck > healthCheckInterval) {
+    lastHealthCheck = millis();
+    mqttClient.publish(mqttTopicPublishHealth, "alive");
+    Serial.println("Health check sent");
   }
 }
