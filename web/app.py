@@ -6,9 +6,14 @@ from flask_basicauth import BasicAuth
 import paho.mqtt.client as mqtt
 from datetime import datetime, timedelta
 import threading
+import time
 
 # Set up logging
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 logger = logging.getLogger(__name__)
 
 # Import configuration
@@ -16,6 +21,11 @@ try:
     import config_local as config
 except ImportError:
     import config
+
+# Global variables
+mqtt_connected = False
+last_health_check = None
+HEALTH_CHECK_TIMEOUT = 30  # seconds
 
 # Flask app and database setup
 app = Flask(__name__)
@@ -32,10 +42,6 @@ basic_auth = BasicAuth(app)
 mqtt_client = mqtt.Client()
 mqtt_client.username_pw_set(config.MQTT_USERNAME, config.MQTT_PASSWORD)
 
-# Track the last health check time
-last_health_check = None
-HEALTH_CHECK_TIMEOUT = 30  # seconds
-
 
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -47,13 +53,36 @@ class Message(db.Model):
 
 # MQTT Callbacks
 def on_connect(client, userdata, flags, rc):
+    connection_codes = {
+        0: "Connected successfully",
+        1: "Incorrect protocol version",
+        2: "Invalid client identifier",
+        3: "Server unavailable",
+        4: "Bad username or password",
+        5: "Not authorized",
+    }
+
     if rc == 0:
-        logger.info("MQTT connected successfully.")
-        # Subscribe to topics
-        client.subscribe(f"{config.MQTT_TOPIC}/status/action")
-        client.subscribe(f"{config.MQTT_TOPIC}/health")
+        logger.info("MQTT connected successfully")
+        try:
+            # Subscribe to topics
+            status_topic = f"{config.MQTT_TOPIC}/status/action"
+            health_topic = f"{config.MQTT_TOPIC}/health"
+
+            logger.debug(f"Subscribing to topic: {status_topic}")
+            client.subscribe(status_topic)
+            logger.debug(f"Subscribing to topic: {health_topic}")
+            client.subscribe(health_topic)
+
+            # Add a flag to indicate successful connection
+            global mqtt_connected
+            mqtt_connected = True
+            logger.info("MQTT topic subscriptions completed")
+        except Exception as e:
+            logger.error(f"Error during topic subscription: {str(e)}")
     else:
-        logger.error(f"MQTT connection failed with code {rc}")
+        error_message = connection_codes.get(rc, f"Unknown error code: {rc}")
+        logger.error(f"MQTT connection failed - {error_message}")
 
 
 def on_message(client, userdata, message):
@@ -68,23 +97,56 @@ def on_message(client, userdata, message):
         logger.info(f"Health check received at {last_health_check}")
     elif topic.endswith("/status/action"):
         logger.info(f"Pump status received: {payload}")
-        # Save status to database
+        # Save status to database using app context
         with app.app_context():
-            db.session.add(Message(content=payload))
-            db.session.commit()
+            try:
+                db.session.add(Message(content=payload))
+                db.session.commit()
+                logger.debug("Successfully saved message to database")
+            except Exception as e:
+                logger.error(f"Failed to save message to database: {e}")
+                db.session.rollback()
 
 
 def setup_mqtt():
+    logger.info("Starting MQTT setup...")
     mqtt_client.on_connect = on_connect
     mqtt_client.on_message = on_message
 
     try:
-        mqtt_client.connect(config.MQTT_BROKER, int(config.MQTT_PORT))
-    except Exception as e:
-        logger.error(f"Error connecting to MQTT broker: {e}")
+        # Add connection retry logic
+        retry_count = 0
+        max_retries = 3
+        logger.info(
+            f"Attempting to connect to MQTT broker at {config.MQTT_BROKER}:{config.MQTT_PORT}"
+        )
 
-    # Start MQTT loop in a separate thread
-    threading.Thread(target=mqtt_client.loop_forever, daemon=True).start()
+        while retry_count < max_retries:
+            try:
+                logger.debug(f"Connection attempt {retry_count + 1} of {max_retries}")
+                mqtt_client.connect(config.MQTT_BROKER, int(config.MQTT_PORT))
+                logger.info("Initial MQTT connection successful")
+                break
+            except Exception as e:
+                logger.error(
+                    f"MQTT connection attempt {retry_count + 1} failed: {str(e)}"
+                )
+                retry_count += 1
+                if retry_count < max_retries:
+                    logger.info("Waiting 2 seconds before retry...")
+                    time.sleep(2)
+                else:
+                    logger.error("All MQTT connection attempts failed")
+
+        # Start MQTT loop in a separate thread
+        logger.debug("Starting MQTT loop thread")
+        mqtt_thread = threading.Thread(target=mqtt_client.loop_forever, daemon=True)
+        mqtt_thread.start()
+        logger.info("MQTT loop thread started")
+
+    except Exception as e:
+        logger.error(f"Unexpected error in MQTT setup: {str(e)}")
+        raise
 
 
 # Routes
@@ -115,7 +177,10 @@ def get_health_status():
     global last_health_check
     now = datetime.now()
 
-    if last_health_check and (now - last_health_check).total_seconds() <= HEALTH_CHECK_TIMEOUT:
+    if (
+        last_health_check
+        and (now - last_health_check).total_seconds() <= HEALTH_CHECK_TIMEOUT
+    ):
         return jsonify({"status": "online"})
     return jsonify({"status": "offline"})
 
@@ -142,19 +207,63 @@ def select_pump():
         return jsonify({"message": "Failed to update pump", "error": str(e)})
 
 
-# Helper function to send MQTT messages
 def send_message(payload, topic_suffix):
+    logger.debug(
+        f"Attempting to send message. Payload: {payload}, Topic suffix: {topic_suffix}"
+    )
+
+    if not mqtt_connected:
+        error_msg = "Cannot send message: MQTT client not connected"
+        logger.error(error_msg)
+        raise Exception(error_msg)
+
     full_topic = f"{config.MQTT_TOPIC}/{topic_suffix}"
     try:
-        mqtt_client.publish(full_topic, payload)
-        logger.info(f"Message '{payload}' sent to topic '{full_topic}'")
+        logger.debug(f"Publishing to topic {full_topic}")
+        result = mqtt_client.publish(full_topic, str(payload))
+
+        if result.rc == 0:
+            logger.info(
+                f"Successfully published message '{payload}' to topic '{full_topic}'"
+            )
+        else:
+            error_msg = f"Failed to publish message: return code {result.rc}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
+
+        # Wait for message to be sent
+        result.wait_for_publish()
+        logger.debug("Message delivery confirmed")
+
     except Exception as e:
-        logger.error(f"Error publishing message to topic {full_topic}")
+        error_msg = f"Error publishing message to topic {full_topic}: {str(e)}"
+        logger.error(error_msg)
+        raise Exception(error_msg)
 
 
-# App startup
-if __name__ == "__main__":
+def init_app(app):
+    logger.info("Initializing application...")
+
     with app.app_context():
+        logger.info("Creating database tables...")
         db.create_all()
-    setup_mqtt()
+
+        logger.info("Setting up MQTT connection...")
+        setup_mqtt()
+
+        # Wait a moment for MQTT to connect
+        time.sleep(2)
+
+        if not mqtt_connected:
+            logger.warning("⚠️ Starting Flask app without MQTT connection!")
+        else:
+            logger.info("MQTT connection established successfully")
+
+
+# Initialize the app
+init_app(app)
+
+# Keep the __main__ block for local development
+if __name__ == "__main__":
+    logger.info("Starting Flask development server...")
     app.run(debug=True)
