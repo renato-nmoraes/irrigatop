@@ -1,10 +1,11 @@
 #!/bin/bash
+set -e
 
-# Initialize the database (if not already initialized)
-flask db init
-
-# Run database migrations (if applicable)
-flask db migrate
+# Initialize the migrations directory only the first time
+if [ ! -d migrations ]; then
+    flask db init
+    flask db migrate -m "initial schema"
+fi
 
 # Apply any pending database migrations
 flask db upgrade

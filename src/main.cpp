@@ -41,7 +41,6 @@ bool pumpState = false; // Tracks pump state (OFF = false, ON = true)
   PWM Configuration
 */
 const int pwmFreq = 1000;
-const int pwmChannel = 0;
 const int pwmResolution = 8;
 
 /*
@@ -71,6 +70,10 @@ String requestFromClient;
 unsigned long lastMQTTReconnectAttempt = 0;
 const unsigned long mqttReconnectInterval = 5000;
 
+unsigned long lastWiFiReconnectAttempt = 0;
+const unsigned long wifiReconnectInterval = 10000;
+const unsigned long wifiConnectTimeout = 20000; // Stop blocking after 20s and retry in loop()
+
 unsigned long lastLEDUpdate = 0;
 const unsigned long ledBlinkInterval = 1000;
 
@@ -80,6 +83,7 @@ const unsigned long healthCheckInterval = 10000; // Send health check every 10 s
 // Setup connection to MQTT
 void setup_mqtt() {
   if (mqttClient.connected()) return;
+  if (WiFi.status() != WL_CONNECTED) return; // No point trying without a network
 
   if (millis() - lastMQTTReconnectAttempt > mqttReconnectInterval) {
     lastMQTTReconnectAttempt = millis();
@@ -87,7 +91,7 @@ void setup_mqtt() {
     String clientId = "ESP32Client-IrrigaTOP" + String(random(0xffff), HEX);
     // Attempt to connect
     if (mqttClient.connect(clientId.c_str(), mqttUser, mqttPassword)) {
-      Serial.println("Connected to MQTT broker.");;
+      Serial.println("Connected to MQTT broker.");
       mqttClient.subscribe(mqttTopicReadAction);
       mqttClient.subscribe(mqttTopicReadIntensity);
       mqttClient.subscribe(mqttTopicReadPump);
@@ -98,7 +102,7 @@ void setup_mqtt() {
   }
 }
 
-// Replaces placeholder with LED state value
+// Replaces the %STATE% placeholder in the served HTML with the current pump state
 String processor(const String& var) {
   if (var == "STATE") {
     return pumpState ? "ON" : "OFF";
@@ -108,7 +112,7 @@ String processor(const String& var) {
 
 // Publish pump status via MQTT
 void publishCurrentPumpStatus(bool publishStatus) {
-  // Publish thethe current status of the Pump from the Pin if its true, otherwise consider as PULSE
+  // Publish the current pump status read from the pin when publishStatus is true, otherwise report a PULSE
   const char* pumpStatus = publishStatus ? (digitalRead(pumpPin) ? "OFF" : "ON") : "PULSE";
   mqttClient.publish(mqttTopicPublishAction, pumpStatus);
 }
@@ -135,23 +139,24 @@ void setPump(String status) {
   if (status == "ON") {
     Serial.print("--- Turning Pump ON ---");
     digitalWrite(pumpPin, LOW);
+    pumpState = true;
   } else if (status == "OFF") {
     Serial.print("--- Turning Pump OFF ---");
     digitalWrite(pumpPin, HIGH);
+    pumpState = false;
   } else if (status == "PULSE") {
     Serial.print("--- Pulsing Pump 2s ---");
     pulse = true;
     digitalWrite(pumpPin, LOW);
     delay(2000);
     digitalWrite(pumpPin, HIGH);
+    pumpState = false;
   }
   // Publish PULSE otherwise will publish the current status of the Pump from the Pin
   publishCurrentPumpStatus(!pulse);
 }
 
 void setup_pwm() {
-  //ledcSetup(pwmChannel, pwmFreq, pwmResolution);
-  //ledcAttachPin(pwmPin, pwmChannel);
   analogWriteResolution(pwmResolution);
   analogWriteFrequency(pwmFreq);
 }
@@ -206,15 +211,15 @@ void setup_asyncWebServerRoutes() {
     request->send(SPIFFS, "/style.css", "text/css");
   });
 
-  // Route to set GPIO to HIGH
+  // Route to turn the pump ON
   server.on("/on", HTTP_GET, [](AsyncWebServerRequest* request) {
-    digitalWrite(pumpPin, HIGH);
+    setPump("ON");
     request->send(SPIFFS, "/index.html", String(), false, processor);
   });
 
-  // Route to set GPIO to LOW
+  // Route to turn the pump OFF
   server.on("/off", HTTP_GET, [](AsyncWebServerRequest* request) {
-    digitalWrite(pumpPin, LOW);
+    setPump("OFF");
     request->send(SPIFFS, "/index.html", String(), false, processor);
   });
 
@@ -239,19 +244,26 @@ void setup_wifi() {
   }
 
   // Connect to Wi-Fi network with SSID and password
+  WiFi.mode(WIFI_STA);
   Serial.print("Connecting to ");
   Serial.println(ssid);
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
+
+  // Wait for a connection, but give up after wifiConnectTimeout so the device
+  // still boots when the network is momentarily unavailable. loop() keeps retrying.
+  unsigned long start = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - start < wifiConnectTimeout) {
     delay(500);
     Serial.print(".");
   }
-
-  // Print local IP address
   Serial.println("");
-  Serial.println("WiFi connected.");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.print("WiFi connected. IP address: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println("WiFi connection timed out, will keep retrying in the background.");
+  }
 }
 
 void setup() {
@@ -282,6 +294,14 @@ void setup() {
 }
 
 void loop() {
+  // Non-blocking WiFi reconnect so a dropped network self-heals while unattended
+  if (WiFi.status() != WL_CONNECTED &&
+      millis() - lastWiFiReconnectAttempt > wifiReconnectInterval) {
+    lastWiFiReconnectAttempt = millis();
+    Serial.println("WiFi disconnected, attempting to reconnect...");
+    WiFi.reconnect();
+  }
+
   // Non-blocking MQTT handling
   setup_mqtt();
   mqttClient.loop();

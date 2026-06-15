@@ -10,7 +10,7 @@ pre_setup_checks() {
     [[ $(cat /proc/version) =~ (centos|ubuntu|debian) ]] && (
       printf "Do you want me to try to install docker for you?"
       ask_user " [y/n]"
-      install_docker && green_secondary_message "Docker installed, please run this script again to setup AlphaTools or use the './run.sh' if you want a different setup."
+      install_docker && green_secondary_message "Docker installed, please run this script again to set up the Mosquitto broker."
     )
     exit 1
   fi

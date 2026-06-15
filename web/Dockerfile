@@ -1,11 +1,11 @@
 # Use the official Python image as the base image
-FROM python:3.9-slim-buster
+FROM python:3.9-slim-bookworm
 
 # Set the working directory inside the container
 WORKDIR /app
 
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 # Copy the requirements.txt file to the working directory
 COPY requirements.txt .
@@ -15,7 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the application code to the working directory
 COPY . .
-RUN mv /app/entrypoint.sh /entrypoint.sh
+RUN mv /app/entrypoint.sh /entrypoint.sh && chmod +x /entrypoint.sh
 
 # Create a volume for the database
 VOLUME /app/instance
@@ -27,5 +27,8 @@ EXPOSE 5000
 ENV FLASK_APP=app.py
 ENV FLASK_RUN_HOST=0.0.0.0
 
-RUN chmod +x /entrypoint.sh
+# Run as a non-root user; the app needs to write to /app (migrations) and /app/instance (db)
+RUN useradd --create-home appuser && chown -R appuser /app
+USER appuser
+
 ENTRYPOINT ["/entrypoint.sh"]

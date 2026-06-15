@@ -1,4 +1,5 @@
 import logging
+import os
 import threading
 import time
 from datetime import datetime
@@ -84,6 +85,15 @@ def on_connect(client, userdata, flags, rc):
         logger.error(f"MQTT connection failed - {error_message}")
 
 
+def on_disconnect(client, userdata, rc):
+    global mqtt_connected
+    mqtt_connected = False
+    if rc != 0:
+        logger.warning(f"Unexpected MQTT disconnection (rc={rc}); loop will auto-reconnect")
+    else:
+        logger.info("MQTT disconnected")
+
+
 def on_message(client, userdata, message):
     global last_health_check
     topic = message.topic
@@ -108,6 +118,7 @@ def setup_mqtt():
     logger.info("Starting MQTT setup...")
     mqtt_client.on_connect = on_connect
     mqtt_client.on_message = on_message
+    mqtt_client.on_disconnect = on_disconnect
 
     try:
         retry_count = 0
@@ -290,4 +301,4 @@ init_app(app)
 
 if __name__ == "__main__":
     logger.info("Starting Flask development server...")
-    app.run(debug=True)
+    app.run(debug=os.environ.get("FLASK_DEBUG") == "1")
