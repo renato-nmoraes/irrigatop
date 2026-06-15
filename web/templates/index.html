@@ -104,7 +104,8 @@
         if (state === 'on') { $('.act.on').addClass('active'); }
         else if (state === 'off') { $('.act.off').addClass('active'); }
         var pumpLabel = $('#pump-toggle button.active').text();
-        $('#status-sub').text((state === 'on' ? 'Regando agora · ' : 'Em espera · ') + pumpLabel);
+        var subPrefix = state === 'on' ? 'Regando agora · ' : (state === 'pulse' ? 'Pulsando · ' : 'Em espera · ');
+        $('#status-sub').text(subPrefix + pumpLabel);
       }
 
       function updateStatus() {
@@ -160,7 +161,7 @@
           })
           .fail(function () { showNotification('Falha ao atualizar a intensidade'); });
       }
-      $slider.on('input change', function () {
+      $slider.on('input', function () {
         var value = $(this).val();
         $num.val(value); $reading.text(value); paintSlider(value);
         debounce(function () { sendIntensity(value); }, 300);

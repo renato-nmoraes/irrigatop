@@ -101,6 +101,7 @@ header { display: flex; align-items: center; justify-content: space-between; mar
   font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--ink-dim);
   padding: 12px; border-radius: 999px; transition: .2s;
 }
+.toggle button:focus-visible, .theme-btn:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 .toggle button.active { background: var(--ink); color: var(--paper); }
 
 .status { margin-bottom: 30px; }
