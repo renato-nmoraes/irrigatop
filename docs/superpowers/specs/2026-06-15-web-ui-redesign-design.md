@@ -26,32 +26,63 @@ These are the crucial rules carried over from the current app:
 
 ## Approach
 
-CSS + HTML markup restyle only. Keep the existing JavaScript behavior intact
+CSS + HTML markup restyle. Keep the existing control JavaScript behavior intact
 (it already does correct AJAX for every control), keep jQuery to avoid rewrite
-risk. Only two files change:
+risk. The only new JS is a small, self-contained theme-init/toggle script that
+sets `data-theme` and persists the choice — it does not touch the control flow.
+Only two files change:
 
-- `web/templates/index.html` — markup/structure cleanup for the new layout.
-- `web/static/styles.css` — the actual restyle.
+- `web/templates/index.html` — new markup/layout + theme toggle + init script.
+- `web/static/styles.css` — the restyle and themed CSS variables.
 
 The firmware-served fallback page (`data/index.html`, `data/style.css`) is
 explicitly out of scope.
 
 ## Visual design
 
-**Direction:** evolve the current dark slate theme — same identity, tightened.
+**Direction: "Botanical Calm."** A calm, organic, premium feel suited to a
+device that keeps living things alive — not a generic admin panel. Validated
+against rendered prototypes (light + dark).
 
-**Design tokens (CSS custom properties):**
-- Background: deep slate; Surface/card: elevated slate; subtle border color.
-- Accent: blue (existing `#3498db` family).
-- Semantic: green = ON/online, red = OFF/offline, blue/amber = PULSE.
-- Type scale, spacing scale, radius, and shadow tokens for consistency.
+**Typography:**
+- Display: **Fraunces** (organic optical serif) for the wordmark and the
+  oversized intensity numeral (the signature moment).
+- UI/body: **Hanken Grotesk**.
+- Loaded via Google Fonts `<link>`. Font stacks MUST include graceful fallbacks
+  (`Georgia, serif` for display; `system-ui, sans-serif` for body) so the layout
+  still works if the webfonts fail to load. (Self-hosting the two fonts under
+  `web/static/fonts/` is a recommended future hardening to drop the external
+  dependency.)
 
-**Polish:** larger rounded corners, soft shadows + subtle borders for depth,
-visible `:focus-visible` rings for accessibility, smooth state transitions.
+**Palette (CSS custom properties, themed):**
+- Light: warm paper `#efece3` bg, card `#f8f6f0`, forest-green ink `#1c2a22`,
+  primary green `#2e7d52` / bright `#46a86e`, terracotta `#bb6240` for OFF
+  (instead of harsh red, to keep the palette harmonious).
+- A soft green radial glow bleeds from the top; a faint SVG grain texture adds
+  warmth.
+
+**Polish:** generous whitespace, hairline borders, restrained rounded corners,
+editorial status sentence ("A bomba está *ligada*"), eyebrow micro-labels on the
+action buttons, leaf wordmark glyph, subtle dark pill toast, visible
+`:focus-visible` rings for accessibility.
+
+## Theme toggle (light / dark)
+
+- A sun/moon icon button in the header toggles between light and the dark
+  "Botanical Calm" variant (warm green-black bg `#0f1613`, brighter green
+  `#4fae74`, off-white ink `#e9ece4`; grain blends via `screen` on dark).
+- Implementation: the toggle flips a `data-theme` attribute on `<html>`; all
+  colors are CSS variables overridden under `[data-theme="dark"]`, so switching
+  is instant and CSS-only.
+- Default: respect `prefers-color-scheme`. Persist the user's explicit choice in
+  `localStorage` (`irrigatop-theme`). A tiny init script sets the attribute on
+  load. This is purely client-side and does NOT touch the MQTT/AJAX flow or
+  cause a reload.
 
 ## Layout (single centered column, mobile-first, max-width ~480px)
 
-1. **Header** — "IrrigaTOP" title bar.
+1. **Header** — leaf wordmark "IrrigaTOP" (left); theme toggle + an "Online"
+   connection chip (right).
 2. **Pump selector** — segmented toggle `Bomba 1 | Bomba 2` (replaces the custom
    `<div>` dropdown). One tap; removes the fragile click-outside-to-close JS.
    Still POSTs `pump_id` to `/pump` identically. The active segment is
@@ -77,6 +108,7 @@ visible `:focus-visible` rings for accessibility, smooth state transitions.
 | Status pill | `GET /status` poll every 5s | color-coded pill |
 | Connection dot | `GET /health` poll every 5s | online/offline dot |
 | Toast | client-side only | restyled success/error |
+| Theme toggle | new, client-side only (`data-theme` + localStorage) | sun/moon button |
 
 ## Error handling
 
@@ -94,7 +126,9 @@ No new error paths introduced.
 2. **No-reload check** — confirm the rendered page issues XHRs (not navigations)
    for slider, number box, buttons, and pump toggle; no full reload occurs.
 3. **Visual check** — render the page and verify layout on a narrow (mobile)
-   viewport.
+   viewport, in both light and dark themes.
+4. **Theme toggle check** — toggling flips `data-theme`, persists to
+   `localStorage`, defaults from `prefers-color-scheme`, and causes no reload.
 
 ## Out of scope
 
