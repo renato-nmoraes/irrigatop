@@ -27,8 +27,9 @@ EXPOSE 5000
 ENV FLASK_APP=app.py
 ENV FLASK_RUN_HOST=0.0.0.0
 
-# Run as a non-root user; the app needs to write to /app (migrations) and /app/instance (db)
-RUN useradd --create-home appuser && chown -R appuser /app
-USER appuser
+# NOTE: runs as root so it can always write the SQLite DB on the bind-mounted
+# /app/instance volume, which Docker creates as root on a fresh deploy. Dropping
+# to a non-root user here crash-loops the container unless volume ownership is
+# handled first (e.g. an entrypoint chown + gosu). Not worth the risk for this tool.
 
 ENTRYPOINT ["/entrypoint.sh"]
