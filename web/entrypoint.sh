@@ -1,15 +1,12 @@
 #!/bin/bash
 set -e
 
-# Initialize the migrations directory only the first time
-if [ ! -d migrations ]; then
-    flask db init
-    flask db migrate -m "initial schema"
-fi
-
-# Apply any pending database migrations
-flask db upgrade
-
+# The schema (a single `message` table) is created by db.create_all() in app.py,
+# so we deliberately do NOT run flask-migrate here. Auto-generating migrations at
+# runtime produces a new random revision id on every build, which then cannot be
+# reconciled with a persisted DB that was stamped by an earlier build
+# ("Can't locate revision ..."). If real migrations are ever needed, generate them
+# in development and commit the migrations/ directory to the repo.
 
 # Start the application with Gunicorn
 if [[ $FLASK_DEBUG == "1" ]]; then
