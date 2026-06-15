@@ -97,7 +97,9 @@
 
       function renderStatus(raw) {
         var key = (raw || '').toUpperCase();
-        $('#status-word').text(STATE_WORDS[key] || raw || '—');
+        // Show a clean em-dash for any non-canonical payload (e.g. the backend's
+        // "No status available" placeholder before the device has reported).
+        $('#status-word').text(STATE_WORDS[key] || '—');
         var state = STATE_CLASS[key] || '';
         $('#status').attr('data-state', state);
         $('.act').removeClass('active');
