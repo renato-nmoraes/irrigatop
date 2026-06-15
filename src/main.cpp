@@ -7,6 +7,7 @@ References:
 #include <PubSubClient.h>
 #include <SPIFFS.h>
 #include <WiFi.h>
+#include <esp_task_wdt.h>
 
 /*
   Network and MQTT Configuration
@@ -79,6 +80,15 @@ const unsigned long ledBlinkInterval = 1000;
 
 unsigned long lastHealthCheck = 0;
 const unsigned long healthCheckInterval = 10000; // Send health check every 10 seconds
+
+// Hardware watchdog: reboot the board if loop() stalls for this long. Must
+// comfortably exceed the 2s blocking delay in the PULSE path.
+const uint32_t wdtTimeoutSeconds = 30;
+
+// Self-recovery: if MQTT stays unreachable this long, reboot to clear any wedged
+// network/stack state that a plain reconnect can't fix.
+unsigned long lastMqttConnected = 0;
+const unsigned long mqttMaxDisconnectedMs = 15UL * 60UL * 1000UL; // 15 minutes
 
 // Setup connection to MQTT
 void setup_mqtt() {
@@ -266,6 +276,24 @@ void setup_wifi() {
   }
 }
 
+// Arm the hardware Task Watchdog Timer. If loop() ever stops feeding it (a hang
+// or deadlock), the ESP32 reboots itself — essential for an unattended device.
+// The init API changed between arduino-esp32 2.x and 3.x, so guard on the version.
+void setup_watchdog() {
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+  esp_task_wdt_config_t wdtConfig = {
+    .timeout_ms = wdtTimeoutSeconds * 1000,
+    .idle_core_mask = 0,    // Don't watch the idle tasks, only loopTask
+    .trigger_panic = true,  // Panic (and reboot) on timeout
+  };
+  esp_task_wdt_init(&wdtConfig);
+#else
+  esp_task_wdt_init(wdtTimeoutSeconds, true);
+#endif
+  esp_task_wdt_add(NULL); // Subscribe the Arduino loop task
+  Serial.printf("Task watchdog armed (%us timeout)\n", wdtTimeoutSeconds);
+}
+
 void setup() {
   Serial.begin(115200);
   Serial.println("########################");
@@ -291,9 +319,24 @@ void setup() {
   publishCurrentPumpStatus(false);
   publishPumpIntensity(0);
   publishPumpId(1);
+
+  lastMqttConnected = millis(); // Start the MQTT-stuck timer from boot
+  setup_watchdog();             // Arm last, so blocking setup steps can't trip it
 }
 
 void loop() {
+  // Feed the hardware watchdog; if loop() stalls past the timeout, the board reboots.
+  esp_task_wdt_reset();
+
+  // Reboot if MQTT has been unreachable too long, to clear any wedged state.
+  if (mqttClient.connected()) {
+    lastMqttConnected = millis();
+  } else if (millis() - lastMqttConnected > mqttMaxDisconnectedMs) {
+    Serial.println("MQTT unreachable too long; restarting to recover...");
+    Serial.flush();
+    ESP.restart();
+  }
+
   // Non-blocking WiFi reconnect so a dropped network self-heals while unattended
   if (WiFi.status() != WL_CONNECTED &&
       millis() - lastWiFiReconnectAttempt > wifiReconnectInterval) {
