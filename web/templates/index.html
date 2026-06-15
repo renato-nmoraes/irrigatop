@@ -28,10 +28,16 @@
   <form method="POST">
     <div class="container">
       <div class="state-container">
-        <span class="state-label">Status da bomba:</span>
-        <span id="state-placeholder" class="state-value">
-          <!-- {{ pump_status }} -->
-        </span>
+        <div>
+          <span class="state-label">Status da bomba:</span>
+          <span id="state-placeholder" class="state-value">
+            <!-- {{ pump_status }} -->
+          </span>
+        </div>
+        <div class="health-status">
+          <span>Conexão:</span>
+          <div id="health-indicator" class="health-indicator offline"></div>
+        </div>
       </div>
       <div class="button-container">
         <button type="submit" name="action" value="ON" class="button button-action button-on">ON</button>
@@ -44,98 +50,167 @@
   </form>
   <form method="POST" action="/intensity" id="slider-form">
     <div class="slider-container">
-      <input type="range" value="0" min="0" max="100" name="slider" id="range"">
+      <input type="range" value="0" min="0" max="100" name="slider" id="range">
       <input type="number" id="rangenumber" min="0" max="100" value="0">
     </div>
   </form>
+  <div id="notification" class="notification"></div>
   <script>
-    // Slider functionality
     $(document).ready(() => {
-      var sliderValue = 0;
-      var timeout = null;
-      const $rangeInput = $('#range');
-      const $numberInput = $('#rangenumber');
-      const $sliderForm = $('#slider-form');
-      const $pumpDropdown = $('#pump-select');
-
-      // Slider functionality
-      $rangeInput.on('input change', () => {
-        const sliderValue = $rangeInput.val();
-        $numberInput.val(sliderValue);
-        clearTimeout(timeout);
-        timeout = setTimeout(() => sendSliderValue(sliderValue), 500); // Delay sending
-      });
-
-      $numberInput.on('change', () => {
-        const sliderValue = $numberInput.val();
-        $rangeInput.val(sliderValue);
-        sendSliderValue(sliderValue);
-      });
-
-      function sendSliderValue(value) {
+      const $slider = $("#range");
+      const $sliderValue = $("#rangenumber");
+      const $statePlaceholder = $("#state-placeholder");
+      const $pumpSelect = $("#pump-select");
+      const $pumpForm = $("#pump-form");
+  
+      // Notification function
+      function showNotification(message, type = 'error') {
+        const $notification = $('#notification');
+        $notification
+          .text(message)
+          .removeClass('error success')
+          .addClass(type)
+          .addClass('show');
+  
+        setTimeout(() => {
+          $notification.removeClass('show');
+        }, 3000);
+      }
+  
+      // Update the pump status and health status every 5 seconds
+      const updateStatus = () => {
+        $.getJSON("/status")
+          .done((data) => {
+            if (data.success) {
+              $statePlaceholder.text(data.status || "Unknown");
+            } else {
+              showNotification(data.message);
+            }
+          })
+          .fail(() => {
+            showNotification("Failed to fetch pump status");
+          });
+  
+        $.getJSON("/health")
+          .done((data) => {
+            const $healthIndicator = $("#health-indicator");
+            $healthIndicator
+              .removeClass("online offline")
+              .addClass(data.status);
+          })
+          .fail(() => {
+            $("#health-indicator").removeClass("online").addClass("offline");
+          });
+      };
+      setInterval(updateStatus, 5000);
+      updateStatus();
+  
+      // Handle pump action buttons
+      $("form button[name='action']").click(function(event) {
+        event.preventDefault();
+        const action = $(this).val();
+        
         $.ajax({
-          url: $sliderForm.attr('action'),
-          type: 'POST',
-          data: $sliderForm.serialize(),
-          success: (response) => {
-            $('#result').text(response.message);
+          url: "/",
+          type: "POST",
+          data: { action: action },
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest'
           },
-          error: (error) => {
-            console.error('Request failed:', error);
+          success: function(response) {
+            if (response.success) {
+              showNotification(response.message, 'success');
+              updateStatus();
+            } else {
+              showNotification(response.message);
+            }
+          },
+          error: function() {
+            showNotification("Failed to send command to pump");
           }
         });
-      }
-
-      // Pump selection functionality
-      $pumpDropdown.click(function() {
-        $(this).toggleClass('active');
       });
-
-      $pumpDropdown.on('click', '.dropdown-options div', function(event) {
+  
+      // Handle slider updates
+      function updateSlider(value) {
+        $.post("/intensity", { slider: value })
+          .done((response) => {
+            if (response.success) {
+              showNotification(response.message, 'success');
+            } else {
+              showNotification(response.message);
+            }
+          })
+          .fail(() => {
+            showNotification("Failed to update intensity");
+          });
+      }
+  
+      $slider.on("input change", function() {
+        const value = $(this).val();
+        $sliderValue.val(value);
+        debounce(() => updateSlider(value), 300);
+      });
+  
+      $sliderValue.on("change", function() {
+        const value = $(this).val();
+        $slider.val(value);
+        updateSlider(value);
+      });
+  
+      // Handle pump selection dropdown
+      $pumpSelect.on("click", function() {
+        $(this).toggleClass("active");
+      });
+  
+      $pumpSelect.on("click", ".pump-option", function(event) {
         event.stopPropagation();
-        const selectedPumpText = $(this).text();
-        $pumpDropdown.find('.selected-pump').text(selectedPumpText);
-        $pumpDropdown.removeClass('active');
-
-        const pumpId = $(this).data('value');
-        $('#pump_id').val(pumpId);
-
+        const selectedText = $(this).text();
+        const pumpId = $(this).data("value");
+        
+        $pumpSelect.find(".selected-pump").text(selectedText);
+        $pumpSelect.removeClass("active");
+        $("#pump_id").val(pumpId);
+  
         $.ajax({
-          url: '/pump',
-          type: 'POST',
-          data: $('#pump-form').serialize(),
-          success: (data) => {
-            console.log('Pump ID set successfully:', data.pump_id);
+          url: $pumpForm.attr("action"),
+          type: "POST",
+          data: $pumpForm.serialize(),
+          success: function(response) {
+            if (response.success) {
+              showNotification(response.message, 'success');
+            } else {
+              showNotification(response.message);
+            }
           },
-          error: (error) => {
-            console.error('Error setting pump ID:', error);
+          error: function() {
+            showNotification("Failed to select pump");
           }
         });
       });
-
-      // Update the pump status on the frontend when a new message is received
-      function updatePumpStatus(status) {
-          $('#state-placeholder').text(status);
+  
+      // Close dropdown when clicking outside
+      $(document).on("click", function(event) {
+        if (!$(event.target).closest('.custom-dropdown').length) {
+          $pumpSelect.removeClass("active");
+        }
+      });
+  
+      // Debounce function
+      let debounceTimeout;
+      function debounce(fn, delay) {
+        clearTimeout(debounceTimeout);
+        debounceTimeout = setTimeout(fn, delay);
       }
 
-      // Get the initial pump status from the server
-      $.get('/status', function(response) {
-          updatePumpStatus(response.status);
-      });
-
-      setInterval(function() {
-        $.getJSON("/status", function(data) {
-            $("#state-placeholder").text(data.status); 
-        });
-      }, 5000);  // Check for updates every 5 seconds
-
-      $(document).click(function(event) {
-        if (!$pumpDropdown.is(event.target) && $pumpDropdown.has(event.target).length === 0) {
-          $pumpDropdown.removeClass('active');
-        }
+      // Add this to update slider background as it moves
+      $slider.on("input", function() {
+        const value = ((this.value - this.min) / (this.max - this.min)) * 100;
+        this.style.background = `linear-gradient(to right, #3498db 0%, #3498db ${value}%, #2c3e50 ${value}%, #2c3e50 100%)`;
       });
     });
   </script>
+
 
 </body>
 
